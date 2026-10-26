@@ -44,6 +44,10 @@ Read when hand-building or fixing something the generator does not place, or whe
 - Guard arm line: LINE 2E3922 (35 long, from 4767.4005, -2151.7964), centered on the pole. Comm dots on it: SEC-MISC 2A500C (3805.6404, -388.2413) under line 2A500B (y -386.763).
 - SIDE XFMR: 2E3425 at (4697.58, -1973.82), width 10.42 (insertion = box center).
 
+- 66KV (TD2536512): TRANS INS 66 leaning up 2E37A8 (right) / 2E37C0 (left), insertion (4610.268, -1841.4237) on the pole. TRANS DE 66 2E37D0 (4697.5843, -1841.4237) with X CONDs 2E37E9 right / 2E37EA left (4697.5843, -1841.4348). Side group: SIDE XARM 2E3428 (4695.0843, -1654.6283), TRANS P&I 2E3429 (4695.0843, -1657.1283), X CONDs 2E3928 / 2E3929 (4695.0842, -1669.9386). TRANS P&I on an arm: XARM 2E33E5 (row -1654.6283), P&I 2E3456, 2E3457, 2E3459, 2E3458 at the slots.
+- XFMR BANK 2E3426 (4610.268, -1973.8214, half width 20.41). DISCONNECT ARM 2E38FB (5177.2192, -1791.1975, layer ELECTRIC, half width 34.43).
+- No RECLOSER symbol in the template.
+
 ## Sheet data stash (x 2340 to 2500, y -700 to -120)
 
 - CREW box 391E85 (top-left 2379.0399, -121.5856), header 391E97 (baseline -129.6132), line 391E98 (baseline -137.6402).

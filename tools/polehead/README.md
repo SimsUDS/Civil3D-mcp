@@ -90,6 +90,15 @@ for `qc.py` (see below).
   - `qp` QUEENS POST: a line at its row from the pole out to its anchor's distance (`an`, or its own `L`). Guys with
     `via: <qp index>` run from the pole to the QP end; one more guy runs from the QP end down to the anchor.
     Callout text `QUEENS POST`.
+  - `ins66` TRANS INS 66 leaning up from the pole (2E37A8 right, 2E37C0 left, 19.11 long), `k` `L`, `R` or `LR`.
+  - `de66` TRANS DE 66 (2E37D0) on the pole with X CONDs (2E37E9 / 2E37EA), `k` `B` (default), `R` or `L`.
+  - `tpi66` SIDE XARM on the pole with a TRANS P&I hanging below and X CONDs both ways from its bottom (template
+    group 2E3428, 2E3429, 2E3928, 2E3929 as is). The row is the X COND line; the pole line runs up to the box top.
+  - `tpiarm` XARM (2E33E5) with TRANS P&I hanging at the slots in `pins` (2E3456, 2E3457, 2E3459, 2E3458).
+  - `xbank` XFMR BANK (2E3426) centered on the pole. `disc` DISCONNECT ARM (2E38FB) centered on the pole.
+  - `co` / `sa` on `arm`: front view CUTOUTs / SURGE ARRESTERs at any offsets from the pole (a 3 phase FH & LA
+    arm drawn S-SA per phase). `circx`: conductor circles at any offsets (with `pinx`).
+  - A guy without `c` is drawn with no DG callout or leader (the PDF draws the guy but labels no DG).
   - `o`: tie-break order for two items at the same height.
 - Anchor labels: the far anchor's at ground, the others stacked above from the farthest to the nearest (leaders never
   cross), each raised until its leader's arrow segment is at least 15.1 long (shorter and the arrowhead does not draw).

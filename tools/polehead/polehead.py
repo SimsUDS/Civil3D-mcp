@@ -134,6 +134,20 @@ GALDOT = ('2A500C', 3805.6404, -386.763)          # SEC-MISC hanging under a gua
 # extent right of the pole, extent left of the pole). 'L' = left leaning PH, 'R' = right leaning PH.
 PH = {'L': (['2E3866', '2E386B', '2E386D'], 5333.5588, -1291.8281, 6.9924, 3.8930),
       'R': (['2E3811', '2E386C', '2E386E'], 5264.5156, -1291.6289, 3.8930, 6.9924)}
+# Transmission (66KV) and other Builder pieces (TD2536512, Kevin's locations). Insertions given per piece.
+INS66 = {'R': ('2E37A8', 4610.268, -1841.4237), 'L': ('2E37C0', 4610.268, -1841.4237)}   # TRANS INS 66 leaning up, 19.11 long
+INS66_L = 19.114
+DE66 = ('2E37D0', 4697.5843, -1841.4237)          # TRANS DE 66 on the pole, 4.8 square
+DE66_X = {'R': ('2E37E9', 4697.5843, -1841.4348), 'L': ('2E37EA', 4697.5843, -1841.4348)}   # X CONDs beside it
+# SIDE XARM on the pole, TRANS P&I hanging below it, X CONDs both ways from the P&I bottom (insertion P - 2.5).
+# The row is the X COND line; the box top sits 17.81 above it.
+TPI66 = (['2E3428', '2E3429', '2E3928', '2E3929'], 4697.5843, -1669.9386)
+TPI66_UP = 17.8103
+TPI66_EXT = {1: 22.5, -1: 27.5}
+TPIARM = ('2E33E5', 4610.268, -1654.6283)         # XARM for TRANS P&I hanging off an arm
+TPI_SLOT = ['2E3456', '2E3457', '2E3459', '2E3458']   # TRANS P&I at slots -29.76, -12.13, +12.13, +29.76 (arm line)
+XBANK = ('2E3426', 4610.268, -1973.8214, 20.41)   # XFMR BANK, centered on the pole, half width
+DISCARM = ('2E38FB', 5177.2192, -1791.1975, 34.43)   # DISCONNECT ARM, centered on the pole, half width
 ANC_LEADER_MIN = 15.1                               # shorter and the leader arrowhead does not draw
 RISER_W = 3.4169
 COL_GAP = 5.75                                    # callout column clearance past the farthest equipment
@@ -281,6 +295,17 @@ def cp_fhla(J, P, r, handles, cutout_left, left_edge=None):
     J.cp([CUTOUT_SIDE[0]], cx - CUTOUT_SIDE[1], r - src['py'])
 
 
+def cp_arm_fhx(J, P, r, it):
+    """Front view CUTOUTs ('co') and SURGE ARRESTERs ('sa') at any offsets from the pole on an arm (a 3 phase
+    FH & LA arm drawn S-SA per phase, TD2536512). Insertion = center, on the arm line."""
+    sa, sx, sy = FHLAF_SA_PIECE
+    co, cx, cy = FHLAF_CO_PIECE
+    for ox in it.get('co', []):
+        J.cp([co], P + ox - cx, r - cy)
+    for ox in it.get('sa', []):
+        J.cp([sa], P + ox - sx, r - sy)
+
+
 def place_item(J, P, r, it, sc):
     """Copies one equipment item at row y r; returns attach offset on the dim side."""
     t, k = it['t'], it.get('k', 'C')
@@ -360,6 +385,39 @@ def place_item(J, P, r, it, sc):
         else:
             J.cp([SL_SIDE[0]], P - SL_SIDE[1], r - SL_SIDE[2], mirror=P if k == 'L' else None)
             a = SL_SIDE_L if (1 if k == 'R' else -1) == sc else 0
+    elif t == 'ins66':
+        # TRANS INS 66 leaning up from the pole: k 'L', 'R' or 'LR' (one each way)
+        for d in k:
+            h, ix, iy = INS66[d]
+            J.cp([h], P - ix, r - iy)
+        a = INS66_L if ('R' if sc > 0 else 'L') in k else 0
+    elif t == 'de66':
+        # TRANS DE 66 on the pole with X CONDs: k 'B' both ways (default), 'R' or 'L'
+        J.cp([DE66[0]], P - DE66[1], r - DE66[2])
+        dirs = 'RL' if k in ('B', 'C') else k
+        for d in dirs:
+            h, ix, iy = DE66_X[d]
+            J.cp([h], P - ix, r - DE66[2])
+        a = 25 if ('R' if sc > 0 else 'L') in dirs else 2.4
+    elif t == 'tpi66':
+        # SIDE XARM on the pole with a TRANS P&I hanging below and X CONDs both ways (template group as is)
+        hs, ix, iy = TPI66
+        J.cp(hs, P - ix, r - iy)
+        a = TPI66_EXT[sc]
+        it['up'] = TPI66_UP
+    elif t == 'tpiarm':
+        # XARM with TRANS P&I hanging at the slots in 'pins' (0..3)
+        h, ix, iy = TPIARM
+        J.cp([h] + [TPI_SLOT[i] for i in it.get('pins', [])], P - ix, r - iy)
+        a = 35
+    elif t == 'xbank':
+        h, ix, iy, hw = XBANK
+        J.cp([h], P - ix, r - iy)
+        a = hw
+    elif t == 'disc':
+        h, ix, iy, hw = DISCARM
+        J.cp([h], P - ix, r - iy)
+        a = hw
     elif t in ('dot', 'none'):
         pass                                               # dot: handled below; none: only a 'box' (guard arm, comm box)
     elif t == 'riser':
@@ -408,6 +466,9 @@ def place_item(J, P, r, it, sc):
             J.cp([h], P + sh + ARM_SLOT_X[i] - ix, r - iy)
         for ox in it.get('pinx', []):                  # pins at any offset from the pole, e.g. a 3/C secondary
             J.cp([ARM_PINS[0]], P + sh + ox - (src['px'] + ARM_SLOT_X[0]), r - src['py'])   # drawn right of the pole
+        for ox in it.get('circx', []):                 # conductor circles at any offset (pins drawn off the slots)
+            J.cp([ARM_CIRC[0]], P + sh + ox - (src['px'] + ARM_SLOT_X[0]), r - src['py'])
+        cp_arm_fhx(J, P + sh, r, it)
         for i in it.get('dots', []):                   # SEC-MISC dots on the arm (comm / CATV seen end on)
             d = SRC['dot']
             J.cp(d['h'], P + sh + ARM_SLOT_X[i] - d['px'], r - d['py'])
@@ -510,7 +571,7 @@ def build_pole(J, P, G, spec):
     for it in items:
         it['G'] = G
         it['a'] = place_item(J, P, G + it['row'], it, sc)
-        top = max(top, it['row'])
+        top = max(top, it['row'] + it.get('up', 0))
     for it in items:
         # a shared item (the other SG half) sticking out further on the dim side: the row's dim ends at its tip
         if it.get('share'):
@@ -609,7 +670,7 @@ def build_pole(J, P, G, spec):
                 return qx + (g['ax'] - qx) * (qy - y) / (qy - G)
             return P + (g['ax'] - P) * (g['ya'] - y) / (g['ya'] - G)
 
-        gl = sorted(guys, key=lambda g: -g['ya'])
+        gl = sorted([g for g in guys if g.get('c')], key=lambda g: -g['ya'])
         last = None
         for g in gl:
             g['yt'] = g['ya'] - 28 if last is None else min(g['ya'] - 28, last - 30)
@@ -617,6 +678,8 @@ def build_pole(J, P, G, spec):
         lift = max(0, (G + 20) - last) if gl else 0
         for gi, g in enumerate(gl):
             J.tag(part='dg', dg=gi)
+            if not g.get('c'):
+                continue                             # guy drawn without a DG callout: no text, no leader
             yt = g['yt'] + lift
             near = max([gs * (gx(o, yt + 3) - P) for o in guys if o['ya'] > yt] or [0]) + 20
             nx = P + gs * near
