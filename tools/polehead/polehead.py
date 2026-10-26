@@ -147,6 +147,7 @@ TPI66_EXT = {1: 22.5, -1: 27.5}
 TPIARM = ('2E33E5', 4610.268, -1654.6283)         # XARM for TRANS P&I hanging off an arm
 TPI_SLOT = ['2E3456', '2E3457', '2E3459', '2E3458']   # TRANS P&I at slots -29.76, -12.13, +12.13, +29.76 (arm line)
 XBANK = ('2E3426', 4610.268, -1973.8214, 20.41)   # XFMR BANK, centered on the pole, half width
+SIDEAR = ('2E33E8', 4697.5843, -2054.8031, 3.96)   # SIDE AR (recloser), centered on the pole, half width
 DISCARM = ('2E38FB', 5177.2192, -1791.1975, 34.43)   # DISCONNECT ARM, centered on the pole, half width
 ANC_LEADER_MIN = 15.1                               # shorter and the leader arrowhead does not draw
 RISER_W = 3.4169
@@ -401,9 +402,10 @@ def place_item(J, P, r, it, sc):
         a = 25 if ('R' if sc > 0 else 'L') in dirs else 2.4
     elif t == 'tpi66':
         # SIDE XARM on the pole with a TRANS P&I hanging below and X CONDs both ways (template group as is)
+        # k 'R': the group mirrored about the pole (box right of the pole, P&I and X CONDs from P + 2.5)
         hs, ix, iy = TPI66
-        J.cp(hs, P - ix, r - iy)
-        a = TPI66_EXT[sc]
+        J.cp(hs, P - ix, r - iy, mirror=P if k == 'R' else None)
+        a = TPI66_EXT[-sc if k == 'R' else sc]
         it['up'] = TPI66_UP
     elif t == 'tpiarm':
         # XARM with TRANS P&I hanging at the slots in 'pins' (0..3)
@@ -412,6 +414,10 @@ def place_item(J, P, r, it, sc):
         a = 35
     elif t == 'xbank':
         h, ix, iy, hw = XBANK
+        J.cp([h], P - ix, r - iy)
+        a = hw
+    elif t == 'ar':
+        h, ix, iy, hw = SIDEAR
         J.cp([h], P - ix, r - iy)
         a = hw
     elif t == 'disc':

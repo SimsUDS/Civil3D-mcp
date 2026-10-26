@@ -95,6 +95,7 @@ for `qc.py` (see below).
   - `tpi66` SIDE XARM on the pole with a TRANS P&I hanging below and X CONDs both ways from its bottom (template
     group 2E3428, 2E3429, 2E3928, 2E3929 as is). The row is the X COND line; the pole line runs up to the box top.
   - `tpiarm` XARM (2E33E5) with TRANS P&I hanging at the slots in `pins` (2E3456, 2E3457, 2E3459, 2E3458).
+  - `ar` SIDE AR (recloser, 2E33E8) centered on the pole. `tpi66` `k: "R"` mirrors the group to the right of the pole.
   - `xbank` XFMR BANK (2E3426) centered on the pole. `disc` DISCONNECT ARM (2E38FB) centered on the pole.
   - `co` / `sa` on `arm`: front view CUTOUTs / SURGE ARRESTERs at any offsets from the pole (a 3 phase FH & LA
     arm drawn S-SA per phase). `circx`: conductor circles at any offsets (with `pinx`).
