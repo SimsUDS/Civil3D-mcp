@@ -41,7 +41,7 @@ Final report: ONLY what Kevin must look at (skips, TLMs that did not fit, questi
 
 ## Setup
 
-- Civil 3D 2026 with Kevin's fork KevinLKs/Civil3D-mcp loaded. Tools: `civil3d_entity` (query, copy, edit, erase, hatch, apply), `civil3d_request_approval`. Clone the fork into the workspace every job; use `tools/polehead/` (`polehead.py`, `station_builder.py`, `qc.py`, README, `docs/`). Never rebuild the generator.
+- Civil 3D 2026 with Kevin's fork simsuds/Civil3D-mcp loaded. Tools: `civil3d_entity` (query, copy, edit, erase, hatch, apply), `civil3d_request_approval`. Clone the fork into the workspace every job; use `tools/polehead/` (`polehead.py`, `station_builder.py`, `qc.py`, README, `docs/`). Never rebuild the generator.
 - Every copy, edit, erase, hatch and apply needs `civil3d_request_approval` with toolName, action and the EXACT parameters (including `"action"`), then the call with `approvalToken` and identical parameters.
 - Build with `apply`: the generator writes one job file; commit it to the job folder with `device_commit_files` (stage it under /mnt/user-data/outputs first), approve and run `{"action": "apply", "jobFile": "<absolute Windows path>"}`. Do not touch the file between approval and apply. The handle map lands beside it as `<job>.result.json`.
 - Job folder files (names vary): the PDF with `POLEHEADS` in its name (one page per pole; a trailing `POLE # X` form page is not a pole; may be a scan with no text layer), the Station Builder xlsx (`STATION BUILDER`, `STATIONS` or a misspelling; one tab per pole, suffixed tabs like `1296855E EXTREME` are matched by `station_builder.py`), an optional TLM xlsx. Never write back to them.
