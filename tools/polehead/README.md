@@ -107,7 +107,7 @@ for `qc.py` (see below).
 - `anchors[].L` lead as written; `guys[].an` index into `anchors` as listed (any order; the generator never reorders the list).
 
 - Spec `handle_map`: `{template handle: handle in this drawing}` for stash pieces whose handle differs in a template copy
-  (TD2486645: ELEV lead `39AD07` -> `39498C`). `rspan_h`: `[box, line1..line4]` of the RULING SPAN example (TD2486645: 3948FA..3948FE).
+  (defaults are the current template: ELEV lead `39498C`, RULING SPAN `3948FA`..`3948FE`; older copies made before the template update had `39AD07` and `3948B8`..`3948BC`). `rspan_h`: `[box, line1..line4]` of the RULING SPAN example when it differs.
 
 ## Rules built in
 
@@ -124,7 +124,7 @@ addresses and ADDRESS LIST visibility, pole names and row 3 sheet numbers.
 - Pole `riser`: riser detail under ELEV (docs/risers.md): `{"items": [{"c": "SEC", "deg": -10, "size": 3, "lead": 20}], "guards": [{"t": "unistrut", "deg": 70}]}`.
   `deg` = riser position around the pole (0 = 3 o'clock, counterclockwise), `size` in inches (SEC 3, PRI 5 by default), `lead` optional
   leader angle, `L` defaults to the first profile's, `drop` pushes the detail lower. 4" risers use a radius edit; U-GUARDs use arc center/angle edits.
-- Pole `rspans`: `[[from, to, ruling span, final sag]]` as written, RULING SPAN boxes (template example 3948B8 at
+- Pole `rspans`: `[[from, to, ruling span, final sag]]` as written, RULING SPAN boxes (template example 3948FA at
   1541.4998, -817.1629) centered on Cx under the calcs (Cy - 100 when there is no calc), each 10 below the last.
 - Guys attach at the row of the item with the exact same height first (DG @ 22'6" at the 22'6" COMM row).
 - EX-LOAD and PR-LOAD are sent without `%` (the block prints its own).

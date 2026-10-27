@@ -170,7 +170,8 @@ CREW = dict(box='391E85', hdr=('391E97', -129.6132), line=('391E98', -137.6402),
 NOTE = dict(box='391E86', hdr=('391EA3', -162.9075), line=('391E99', -170.9346), title='NOTE:')
 GPS = ('391E87', -263.517, 43.23)
 ELEV = ('391EA0', -283.4196, 14.90)
-ELEV_LEAD = '39AD07'               # NO-PLOT line starting at the ELEV insertion; copied with ELEV for AUD attach
+ELEV_LEAD = '39498C'               # NO-PLOT line starting at the ELEV insertion; copied with ELEV for AUD attach
+                                   # (older template copies had 39AD07: pass spec handle_map {'39498C': '39AD07'})
 TLM = ('392289', 2350.1087, -540.1907)
 CALC_INDENT = 9.923
 TLM_W = 144.5734
@@ -183,10 +184,10 @@ FRAME_HALF_H = 702                   # frame is 1404 tall, C at its middle
 # Query this window (layers MISC) to find the row 12 pieces: TEXT starting ADDRESS (address), TEXT starting METER
 # (meter, center justified on x 1971.588), LWPOLYLINE (open box), LINE (divider). Pass them as spec 'tlm_extra'.
 TLM_EXTRA_WINDOW = dict(minX=1850, minY=-792.5, maxX=2003, maxY=-779.5)
-# RULING SPAN box (template example at 1541.4998, -817.1629, same handles in every template copy):
+# RULING SPAN box (template example at 1541.4998, -817.1629; current template handles, older copies had 3948B8..BC):
 # box, underlined header, '-FROM a TO b', ' RULING SPAN = x', ' FINAL SAG = y' (layer DECAL, SIMPLEX 4.8)
-RSPAN = dict(box='3948B8', left=1538.624, top=-807.5353, x=1541.4998,
-             lines=[('3948B9', -815.5629), ('3948BA', -825.19), ('3948BB', -833.217), ('3948BC', -841.2441)],
+RSPAN = dict(box='3948FA', left=1538.624, top=-807.5353, x=1541.4998,
+             lines=[('3948FB', -815.5629), ('3948FC', -825.19), ('3948FD', -833.217), ('3948FE', -841.2441)],
              bottom=-844.8897)
 TLMNOTE = dict(box='392285', hdr=('392287', -677.2306), line=('392288', -689.5668), x=2354.3102)
 

@@ -52,7 +52,7 @@ Read when hand-building or fixing something the generator does not place, or whe
 
 - CREW box 391E85 (top-left 2379.0399, -121.5856), header 391E97 (baseline -129.6132), line 391E98 (baseline -137.6402).
 - NOTE box 391E86 (top-left 2379.0399, -154.8799), header 391EA3 (baseline -162.9075), line 391E99 (baseline -170.9346). Text x = 2381.9156.
-- GPS 391E87 (insertion 2379.0399, -263.517; LAT, LONG). ELEV 391EA0 (insertion 2379.0399, -283.4196; FOOTAGE; colorIndex 1, keep it). ELEV lead line 39AD07 (NO-PLOT LINE, start = ELEV insertion): always copied with ELEV, same offset.
+- GPS 391E87 (insertion 2379.0399, -263.517; LAT, LONG). ELEV 391EA0 (insertion 2379.0399, -283.4196; FOOTAGE; colorIndex 1, keep it). ELEV lead line 39498C (NO-PLOT LINE, start = ELEV insertion): always copied with ELEV, same offset.
 - TLM 392289 (dynamic block, layer 0, scale 60, width 144.57, insertion 2350.1087, -540.1907). TLM NOTE box 392285, header 392287, note line 392288.
 
 ## Frames

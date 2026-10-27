@@ -31,7 +31,7 @@ Read on every job when building the note lines (step 3). `station_builder.py` ap
 2. No crew notes: no CREW NOTE box.
 3. NOTE box top = CREW bottom - 5.
 4. GPS: top = NOTE bottom - 5; insertion (bottom-left) y = top - 43.23.
-5. ELEV: top = GPS bottom - 5; insertion y = top - 14.90. The NO-PLOT lead line 39AD07 is copied with it at the same offset.
+5. ELEV: top = GPS bottom - 5; insertion y = top - 14.90. The NO-PLOT lead line 39498C is copied with it at the same offset.
 6. Obstruction detail below ELEV (obstruction.md).
 
 ## Box geometry (CREW NOTE, NOTE, DE CALC; DECAL, SIMPLEX 4.8, about 3.97 per character)

@@ -1,3 +1,5 @@
+import { writeFileSync } from "node:fs";
+import { isAbsolute } from "node:path";
 import { z } from "zod";
 import { withApplicationConnection } from "../../utils/ConnectionManager.js";
 import type { DomainToolDefinition } from "../domainRuntime.js";
@@ -74,6 +76,7 @@ const QueryArgs = z.object({
   types: z.array(z.string()).optional(),
   limit: z.number().int().min(1).max(5000).optional(),
   includeGeometry: z.boolean().optional(),
+  outFile: z.string().min(1).optional(),
 });
 const CopyArgs = z.object({ action: z.literal("copy"), operations: z.array(CopyOperationSchema).min(1) });
 const EditArgs = z.object({ action: z.literal("edit"), edits: z.array(EditSchema).min(1) });
@@ -109,8 +112,17 @@ export const ENTITY_DOMAIN_DEFINITION: DomainToolDefinition = {
       safeForRetry: true,
       pluginMethods: ["queryEntities"],
       execute: async (args) => {
-        const { action: _action, ...rest } = args as z.infer<typeof QueryArgs>;
-        return await send("queryEntities", rest);
+        const { action: _action, outFile, ...rest } = args as z.infer<typeof QueryArgs>;
+        const result = await send("queryEntities", rest);
+        if (!outFile) return result;
+        // Write the full result on the drafting machine and reply with a summary only, so large queries
+        // (pole head QC) reach scripts as a file instead of flooding the conversation.
+        if (!isAbsolute(outFile) || !/\.json$/i.test(outFile)) {
+          throw new Error("query outFile must be an absolute path ending in .json.");
+        }
+        writeFileSync(outFile, JSON.stringify(result, null, 2), "utf8");
+        const r = (result ?? {}) as Record<string, unknown>;
+        return { outFile, matched: r.matched, returned: r.returned, truncated: r.truncated, countsByType: r.countsByType };
       },
     },
     copy: {
@@ -207,6 +219,7 @@ export const ENTITY_DOMAIN_DEFINITION: DomainToolDefinition = {
         types: z.array(z.string()).optional(),
         limit: z.number().int().min(1).max(5000).optional(),
         includeGeometry: z.boolean().optional(),
+        outFile: z.string().min(1).optional().describe("query: absolute path of a .json file on this machine to write the full result to; the reply is then only counts and the path."),
         operations: z.array(CopyOperationSchema).optional(),
         edits: z.array(EditSchema).optional(),
         handles: z.array(HandleSchema).optional(),
