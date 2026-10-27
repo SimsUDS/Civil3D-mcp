@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Live redraw: `copyEntities`, `editEntities`, `createHatches` and
+  `eraseEntities` repaint the drawing between pieces (throttled to about every
+  100 ms) and show `MCP <action>: n/total` on the command line, instead of
+  everything appearing at the end. Still one transaction per call, so undo and
+  rollback on error are unchanged. Set `CIVIL3D_MCP_LIVE_REDRAW=0` to turn it off.
 - `civil3d_entity` action `edit` (and `apply` job edits): circles and arcs take
   `center` and `radius`; arcs also take `startAngleDeg` / `endAngleDeg`.
 - `tools/polehead`: riser details (`riser` spec), 4" risers by radius edit,

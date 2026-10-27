@@ -34,7 +34,9 @@ public static class CivilExecution
           var database = doc.Database;
 
           using var documentLock = doc.LockDocument();
-          using var transaction = database.TransactionManager.StartTransaction();
+          // Started from the document's transaction manager so DrawProgress can
+          // flush graphics mid-transaction (live redraw during batch commands).
+          using var transaction = doc.TransactionManager.StartTransaction();
 
           result = action(doc, civilDoc, database, transaction);
 
