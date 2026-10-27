@@ -9,7 +9,7 @@ Read whenever a pole has down guys, span guys or anchors (most jobs). The genera
 - Spec `guys[].an` = index into `anchors` AS LISTED (the generator never reorders).
 - After the apply, check each guy's end x against its anchor in the verify query (QC item 6).
 
-- Guys on both sides of one pole (QPs left and right, TD2524712 4032107E): anchors on the other side get `gs` in the spec; DG callouts stack per side.
+- Guys on both sides of one pole (QPs left and right, TD2524712 4032107E): anchors on the other side get `gs` in the spec; DG callouts stack per side. Lead dims stay at G - 12; the pole label stays centered on the pole and drops 12 (PROPOSED baseline G - 23.08).
 - QUEENS POST `via` indexes the spec's `qp` items AS LISTED.
 
 ## Attach rows

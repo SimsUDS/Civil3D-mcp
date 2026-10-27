@@ -284,19 +284,27 @@ class Job:
 def assign_rows(items):
     """Cluster rule: lowest keeps its scale position, each next steps up 8 when crowded."""
     items.sort(key=lambda it: (ft(it['h']), it.get('o', 0)))
-    used = []
+    # each row holds its callout lines: the row's own lines stack DOWN 8 apart from the row and 'above' lines
+    # stack up, so a two line callout needs 16 to the row under it (TD2550925 1453777E: SG + COMM rows overlapped)
+    used = []                                   # (lowest line, highest line) offsets in row units
     for it in items:
         if it.get('share'):
             continue
+        nc = max(1, len(it.get('c', [])))
+        na = len(it.get('above', []))
         y = pos(ft(it['h']))
-        while any(abs(y - u) < 8 for u in used):
+        while any(y - 8 * (nc - 1) - hi < 8 and lo - (y + 8 * na) < 8 for lo, hi in used):
             y += 8
         it['row'] = y
-        used.append(y)
+        used.append((y - 8 * (nc - 1), y + 8 * na))
     for it in items:
         if it.get('share'):
-            it['row'] = next(o['row'] for o in items
-                             if o is not it and not o.get('share') and int(ft(o['h'])) == int(ft(it['h'])))
+            # the host with the exact same height first (two hosts in one whole foot, 21' and 21'6" each with
+            # a span guy, TD2550925 1453777E), else the one in the same whole foot
+            hosts = [o for o in items if o is not it and not o.get('share')]
+            host = next((o for o in hosts if ft(o['h']) == ft(it['h'])), None) or \
+                next(o for o in hosts if int(ft(o['h'])) == int(ft(it['h'])))
+            it['row'] = host['row']
 
 
 CUTOUT_SIDE = ('2E3872', 5267.7315)                # side view CUTOUT (S), insertion = center, P + 3.2159 in the Builder
@@ -389,7 +397,10 @@ def place_item(J, P, r, it, sc):
         J.cp([GALINE[0]], min(P, x1) - GALINE[1], r - GALINE[2],
              edit=[dict(start=pt(min(P, x1), r), end=pt(max(P, x1), r))])
         dsrc = SRC['dot']
-        J.cp(dsrc['h'], x1 - dsrc['px'], r - dsrc['py'])
+        # dots: SEC-MISC dots ON the arm at these distances from the pole (toward k) instead of the one end dot,
+        # e.g. an ALLEY ARM with three comm dots short of its end (TD2550925 4611191E)
+        for ox in it.get('dots') or [L]:
+            J.cp(dsrc['h'], (P + d * float(ox)) - dsrc['px'], r - dsrc['py'])
         a = L if d == sc else 0
     elif t == 'ph':
         # PH & LA: copy the template example group as is, k 'L' (left leaning PH) or 'R' (right leaning PH)
