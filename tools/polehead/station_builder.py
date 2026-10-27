@@ -62,6 +62,7 @@ def sheet_from_rows(pole, rows, report):
                 if 'INSP.' in f:
                     a, _, b = f.partition('INSP.')
                 else:                            # "2014 , N/A" = set year, inspection year
+                    f = re.sub(r"^(\d{4})'\s+", r'\1, ', f)   # "2019' N/A": apostrophe typed for the comma
                     a, _, b = f.partition(',')
                 na = lambda x: 'N/A' if x.strip(' ,') in ('', 'NA', 'N/A') else x.strip(' ,')
                 t = '-POLE SET IN %s, INSP. %s' % (na(a), na(b))
@@ -73,7 +74,15 @@ def sheet_from_rows(pole, rows, report):
             elif fill:
                 t = t.replace('STREET NAME', clean(fill))
         elif '___' in t and fill:
-            t = t.split('___')[0].rstrip() + ' ' + clean(fill)
+            blanks = re.findall(r'_+(?:/_+)*', t)
+            parts = [x.strip() for x in clean(fill).split(',')]
+            if len(blanks) > 1 and len(parts) == len(blanks):
+                # several blanks, comma separated fill-ins: fill them in order
+                # ("NOTIFICATION #____ REQUESTED ON __/__/__" + "415588905, 9/3/2026")
+                for x in parts:
+                    t = re.sub(r'_+(?:/_+)*', lambda m, x=x: x, t, count=1)
+            else:
+                t = t.split('___')[0].rstrip() + ' ' + clean(fill)
         if not t.startswith('-'):
             t = '-' + t
         t = re.sub(r'\bVIA VIA\b', 'VIA', t)              # fill-in that repeats the template word

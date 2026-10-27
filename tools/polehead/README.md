@@ -88,7 +88,7 @@ for `qc.py` (see below).
   - `top: true` on `de1`/`de2`: X CONDs both ways from the pin tops too, when the PDF draws arrows over the dead end pins.
   - `riser` TOR: riser box (2A4127) from the ground to its row, `k` `C` centered on the pole (pole runs through it), `R`/`L` beside it. Callout `TOR`.
   - `qp` QUEENS POST: a line at its row from the pole out to its anchor's distance (`an`, or its own `L`). Guys with
-    `via: <qp index>` run from the pole to the QP end; one more guy runs from the QP end down to the anchor.
+    `via: <qp index>` (index among the spec's `qp` items AS LISTED) run from the pole to the QP end; one more guy runs from the QP end down to the anchor.
     Callout text `QUEENS POST`.
   - `ins66` TRANS INS 66 leaning up from the pole (2E37A8 right, 2E37C0 left, 19.11 long), `k` `L`, `R` or `LR`.
   - `de66` TRANS DE 66 (2E37D0) on the pole with X CONDs (2E37E9 / 2E37EA), `k` `B` (default), `R` or `L`.
@@ -96,6 +96,13 @@ for `qc.py` (see below).
     group 2E3428, 2E3429, 2E3928, 2E3929 as is). The row is the X COND line; the pole line runs up to the box top.
   - `tpiarm` XARM (2E33E5) with TRANS P&I hanging at the slots in `pins` (2E3456, 2E3457, 2E3459, 2E3458).
   - `ar` SIDE AR (recloser, 2E33E8) centered on the pole. `tpi66` `k: "R"` mirrors the group to the right of the pole.
+  - `de115` TRANS DE 115 (2E37DB, 4.8 x 8): `k: "L"` box left of the pole with its edge on the pole line (TD2524712
+    2115931E L/E, Kevin), `"R"` right, `"C"` centered as in the template. `xc`: X CONDs from the box center, `"B"`, `"R"`,
+    `"L"`, or none (default; draw them only when the PDF does).
+  - `ins66` with `lvl: true`: the level TRANS INS 66 pair (2E3494 right, 2E37B8 left) instead of the leaning up one.
+  - `pharm` PH & LA ARM front view: the COMBINATIONS example group (XARM 2E3810, 4 POTHEADs, 4 SURGE ARRESTERs) centered on the pole.
+  - `pt` PT (2E33EB) beside the pole on the `k` side (`C` centered); `la: true` adds a SURGE ARRESTER (2E3870) 1.5 clear of each side.
+  - `omni: "L"` / `"R"` on `de1`/`de2`: INV OMNI CLOSED 5 beyond that side's dead end box insertion, on the row (`omni_lean: "R"` mirrors it).
   - `xbank` XFMR BANK (2E3426) centered on the pole. `disc` DISCONNECT ARM (2E38FB) centered on the pole.
   - `co` / `sa` on `arm`: front view CUTOUTs / SURGE ARRESTERs at any offsets from the pole (a 3 phase FH & LA
     arm drawn S-SA per phase). `circx`: conductor circles at any offsets (with `pinx`).
@@ -104,6 +111,11 @@ for `qc.py` (see below).
 - Anchor labels: the far anchor's at ground, the others stacked above from the farthest to the nearest (leaders never
   cross), each raised until its leader's arrow segment is at least 15.1 long (shorter and the arrowhead does not draw).
   Bearings written on the PDF go in the label (`EX: CATV ANC 122%%D`).
+- Guys on both sides of one pole: give the anchors on the other side `"gs": 1` / `-1` (the profile's `gside` is the default).
+  Each side gets its own anchor scale, lead dims, DG stack and anchor labels; the pole label stays on the pole and the lead
+  dims drop 24 below it.
+- DG callouts that would land on equipment callout text on their side (QP callouts) step to the nearest clear spot, and
+  the first one rises (up to attach - 8) when a leader would still run through callout text; leftovers are reported.
 - `anchors[].L` lead as written; `guys[].an` index into `anchors` as listed (any order; the generator never reorders the list).
 
 - Spec `handle_map`: `{template handle: handle in this drawing}` for stash pieces whose handle differs in a template copy

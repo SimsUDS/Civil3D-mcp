@@ -22,6 +22,10 @@ Read when something misbehaves, before a hand-built job with moves, mirrors or d
 
 - Circles and arcs: `edit` takes `center`, `radius`, and on arcs `startAngleDeg` / `endAngleDeg` (degrees CCW from +X; the arc runs CCW from start to end). Needs the plugin build with this change (PR #23); an older build rejects or ignores these fields, so redeploy the plugin before a job that uses them.
 
+## Moves in a fix job
+
+- TD2524712: a `mode: "move"` op in an apply job that also had copies did not move its TEXT, and a leader edit in the same job came out half applied. Run hand moves as their own `copy` call (`mode: "move"`) and re-check leaders with a query.
+
 ## Moves ignore mirrorX
 
 - A copy op with `mode: "move"` and `mirrorX` moves the entity but does not mirror it (seen in TD2486645). To mirror an existing entity, copy it with `mirrorX` (no mode) and erase the original in the same job.

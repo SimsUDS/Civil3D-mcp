@@ -310,8 +310,9 @@ class QC:
             if len(v) < 3 or not b or 'position' not in te:
                 continue
             base = te['position']['y']
-            bases.setdefault(prof, []).append(base)
             arrow = v[0]
+            # guys on both sides of a pole: each side's DG stack is spaced on its own (text left or right of its arrow)
+            bases.setdefault((prof, arrow[0] < b[0]), []).append(base)
             if arrow[0] < b[0]:
                 end = b[0] - 2.8
                 elbow = end - 3
