@@ -101,6 +101,14 @@ for `qc.py` (see below).
     `"L"`, or none (default; draw them only when the PDF does).
   - `ins66` with `lvl: true`: the level TRANS INS 66 pair (2E3494 right, 2E37B8 left) instead of the leaning up one.
   - `pharm` PH & LA ARM front view: the COMBINATIONS example group (XARM 2E3810, 4 POTHEADs, 4 SURGE ARRESTERs) centered on the pole.
+    `ph` / `sa`: offsets from the pole to place them as the PDF draws them instead (a PH left of the pole is the
+    mirrored one), e.g. TD2524712 2115931E: `"ph": [-31.05, 16.18, 30.0], "sa": [-24.18, 9.17, 25.08]`.
+  - `onebox: "L"` / `"R"` on `de2`: dead end both ways on ONE box (box and pin on that side, the other side's ticks
+    from P + 2 and its X COND from the pole); with `top` both arrows start at that pin top.
+  - `box: "B"` on `xr`/`xl`/`xb`: a SIDE XARM on each side, X CONDs from the box edges. A span guy sharing the row
+    (`share`) on a boxed side starts at the box edge (P +/- 5).
+  - `boxdn: true` with `box`: the box hangs under the X COND line (top on the row, edge on the pole) and the X
+    CONDs start at the pole.
   - `pt` PT (2E33EB) beside the pole on the `k` side (`C` centered); `la: true` adds a SURGE ARRESTER (2E3870) 1.5 clear of each side.
   - `omni: "L"` / `"R"` on `de1`/`de2`: INV OMNI CLOSED 5 beyond that side's dead end box insertion, on the row (`omni_lean: "R"` mirrors it).
   - `xbank` XFMR BANK (2E3426) centered on the pole. `disc` DISCONNECT ARM (2E38FB) centered on the pole.
@@ -112,8 +120,8 @@ for `qc.py` (see below).
   cross), each raised until its leader's arrow segment is at least 15.1 long (shorter and the arrowhead does not draw).
   Bearings written on the PDF go in the label (`EX: CATV ANC 122%%D`).
 - Guys on both sides of one pole: give the anchors on the other side `"gs": 1` / `-1` (the profile's `gside` is the default).
-  Each side gets its own anchor scale, lead dims, DG stack and anchor labels; the pole label stays on the pole and the lead
-  dims drop 24 below it.
+  Each side gets its own anchor scale, lead dims, DG stack and anchor labels; the lead dims stay 12 below the ground line and
+  the pole label (centered on the pole) drops 12 per lead dim row below them.
 - DG callouts that would land on equipment callout text on their side (QP callouts) step to the nearest clear spot, and
   the first one rises (up to attach - 8) when a leader would still run through callout text; leftovers are reported.
 - `anchors[].L` lead as written; `guys[].an` index into `anchors` as listed (any order; the generator never reorders the list).
