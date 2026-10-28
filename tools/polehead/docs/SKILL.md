@@ -71,7 +71,7 @@ Crossarm with dots or pins = XARM + VERT P&I (a 3/C arm is usually `pins: [0, 1,
 
 - Heights: `h` = true height as written. No height: `h` = where the PDF draws it, `label: "_'"`.
 - Callout side: all on one side, default right. Down guys on one side: callouts opposite. Guys both sides: the less cluttered side. A span guy does not decide.
-- Callout text: no heights on equipment. New work `IN:` (color 90), `RM:` color 90, existing equipment no prefix. COMM/CATV drop the height, keep directions and MSG (`COMM (NE)`, `CATV MSG`).
+- Callout text: no heights on equipment. New work `IN:` (color 90), `RM:` color 90, existing equipment no prefix. COMM/CATV drop the height, keep directions and MSG (`COMM (NE)`, `CATV MSG`). SLACK always reads `(SLACK)`, never SLACKED (the generator enforces it): `IN: 3/C 1/0ATW (SLACK)`, `(SLACK)(S)`.
 - Guys, anchors and DG wording: `docs/guys-anchors.md` (pairing by tracing is mandatory). Guys on both sides of one pole: anchors on the other side get `gs`. QP `via` indexes the `qp` items as listed in the spec.
 
 ## Workflow
