@@ -23,5 +23,5 @@ Read when any pole has TLM data (a filled PDF TLM table, a pasted Excel snippet,
 
 ## TLM NOTE box
 
-- Notes from the tab or the PDF TLM NOTE area, directly under the visible table (or the last burst row). Common text rules but NO leading dash. Wrap past about 38 characters. The blue placeholder `X MILES AWAY FROM SUB` is not a note. No notes: no box.
+- Notes from the tab or the PDF TLM NOTE area, directly under the visible table (or the last burst row). Common text rules but NO leading dash. Wrap past about 38 characters (the generator wraps at word breaks; give each note as one string in the spec). The blue placeholder `X MILES AWAY FROM SUB` is not a note. No notes: no box.
 - Geometry: box top = table bottom; header baseline top - 7.98; first note top - 20.32; next 8.03 lower; bottom = last baseline - 7.40.

@@ -1011,7 +1011,7 @@ def build_sheet(J, Cx, Cy, sheet):
         # 'raw': the source already lists street addresses only (unit tags like WSDR kept as written)
         addr = [[' '.join(str(a).upper().split()) if tlm.get('raw') else street_only(a), m] for a, m in tlm.get('addr', [])]
         # burst rows run down the TLM column until the table plus its TLM NOTE box would cross the frame bottom
-        nn = len(tlm.get('notes') or [])
+        nn = len(wrap_tlm_notes(tlm.get('notes')))
         fit = tlm_fit(Cy + 114.314, Cy - FRAME_HALF_H + 5, nn)
         if len(addr) > fit:
             J.report.append('%s: %d TLM addresses, only the first %d fit in the frame; needs guidance' % (sheet['pole'], len(addr), fit))
@@ -1032,7 +1032,7 @@ def build_sheet(J, Cx, Cy, sheet):
         if len(addr) > 10 and not sheet.get('tlm_extra'):
             J.report.append('%s: no tlm_extra handles in the spec; using the TD2536012 handles' % sheet['pole'])
         tlm_extra_rows(J, ix, iy, addr[10:], sheet.get('tlm_extra'))
-        notes = tlm.get('notes') or []
+        notes = wrap_tlm_notes(tlm.get('notes'))
         J.tag(part='tlmnote')
         if notes:
             # box directly under the visible table; same x span as the block
@@ -1229,6 +1229,26 @@ def tlm_extra_rows(J, ix, iy, extra, handles=None):
     for j, (a, m) in enumerate(extra):
         top = iy - TLM_L10_BOTTOM - j * TLM_ROW
         J.cp(src['h'], ix - src['left'], top - src['top'], edit=[dict(text=a), dict(text=m)])
+
+
+TLM_NOTE_WRAP = 38                   # TLM NOTE lines wrap past about 38 characters (box is TLM_W wide)
+
+
+def wrap_tlm_notes(notes):
+    """TLM NOTE lines as drawn: each note wrapped at word breaks to at most TLM_NOTE_WRAP characters
+    (TD2536537: 'XFMR BEING REPLACED DUE TO FR3 REQUIREMENTS' ran past the box)."""
+    out = []
+    for n in notes or []:
+        line = ''
+        for w in str(n).split():
+            if line and len(line) + 1 + len(w) > TLM_NOTE_WRAP:
+                out.append(line)
+                line = w
+            else:
+                line = (line + ' ' + w) if line else w
+        if line:
+            out.append(line)
+    return out
 
 
 def street_only(address):
