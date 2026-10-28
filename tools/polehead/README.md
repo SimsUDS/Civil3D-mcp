@@ -81,6 +81,8 @@ for `qc.py` (see below).
   - `rcs` RCS CONTROL BOX: template rectangle 2E3432 centered on its row, `k` `L`/`R` beside the pole (never mirrored).
   - `arm1` short one-sided arm (COMM ARM drawn as a short line out from the pole with a dot at its end): the guard
     arm line 2E3922 cut to `L` (default 17.5) toward `k` (`L`/`R`), SEC-MISC dot on the far end. Not an X COND.
+    `dots: [3.9, 9.05, 13.9]` puts the SEC-MISC dots ON the arm at those distances from the pole instead of the end dot
+    (an ALLEY ARM with three comm dots, TD2550925 4611191E).
   - `gal` guard arm drawn as a line through the pole: the 35 long line 2E3922 centered on the pole. `dots: [4.5, 10, 15.5]`
     hangs SEC-MISC dots (template 2A500C) under the line at those offsets from the pole (comm on a guard arm).
   - `ph` PH & LA (pothead): the template example group copied as is, `k: "L"` left leaning PH (box right of the
@@ -116,6 +118,9 @@ for `qc.py` (see below).
     arm drawn S-SA per phase). `circx`: conductor circles at any offsets (with `pinx`).
   - A guy without `c` is drawn with no DG callout or leader (the PDF draws the guy but labels no DG).
   - `o`: tie-break order for two items at the same height.
+- `share` finds its host by the exact same height first, then the same whole foot (21' and 21'6" rows each with an SG).
+- Cluster rule counts callout lines: a row's own lines stack down 8 apart and `above` lines up, so a two line callout
+  pushes the row above it 16 clear (TD2550925 1453777E, SG + COMM rows).
 - Anchor labels: the far anchor's at ground, the others stacked above from the farthest to the nearest (leaders never
   cross), each raised until its leader's arrow segment is at least 15.1 long (shorter and the arrowhead does not draw).
   Bearings written on the PDF go in the label (`EX: CATV ANC 122%%D`).
