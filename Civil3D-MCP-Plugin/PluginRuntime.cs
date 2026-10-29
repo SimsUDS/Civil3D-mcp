@@ -7,6 +7,7 @@ namespace Civil3DMcpPlugin;
 
 public sealed record PluginStatus(
   bool IsRunning,
+  int Port,
   bool OperationInProgress,
   string? CurrentOperation,
   int QueueDepth,
@@ -26,7 +27,14 @@ public sealed class JsonRpcDispatchException : Exception
 
 public static class PluginRuntime
 {
-  public const int Port = 8080;
+  // Default listener port. When another Civil 3D already holds it, the plugin
+  // tries the next ports (8081, 8082, ...) so two Civil 3D sessions can run
+  // side by side, each reached by its own MCP server (CIVIL3D_PORT).
+  // CIVIL3D_MCP_PORT (environment) or C3DMCPPORT (command) pick a fixed port.
+  public const int DefaultPort = 8080;
+  public const int PortFallbackCount = 10;
+
+  public static int Port { get; private set; } = DefaultPort;
 
   private static readonly object Sync = new();
   private static RpcTcpServer? _server;
@@ -41,7 +49,14 @@ public static class PluginRuntime
   private static string? _currentRequestId;
   private static long? _currentOperationStartedAtUnixMs;
 
-  public static void StartServer()
+  public static void StartServer() => StartServer(null);
+
+  /// <summary>
+  /// Starts the listener. With a requested port only that port is tried;
+  /// otherwise CIVIL3D_MCP_PORT (or 8080) and then the next free port up to
+  /// PortFallbackCount ports higher.
+  /// </summary>
+  public static void StartServer(int? requestedPort)
   {
     lock (Sync)
     {
@@ -50,9 +65,43 @@ public static class PluginRuntime
         return;
       }
 
-      _server = new RpcTcpServer(Port, HandleRawRequestAsync);
-      _server.Start();
+      var firstPort = requestedPort ?? ConfiguredPort();
+      var attempts = requestedPort.HasValue ? 1 : PortFallbackCount;
+      System.Net.Sockets.SocketException? lastError = null;
+      for (var i = 0; i < attempts; i++)
+      {
+        var port = firstPort + i;
+        var server = new RpcTcpServer(port, HandleRawRequestAsync);
+        try
+        {
+          server.Start();
+        }
+        catch (System.Net.Sockets.SocketException ex) when (ex.SocketErrorCode == System.Net.Sockets.SocketError.AddressAlreadyInUse
+          || ex.SocketErrorCode == System.Net.Sockets.SocketError.AccessDenied)
+        {
+          lastError = ex;
+          server.Stop();
+          PluginLog.Info("PluginRuntime", $"Port {port} is in use (another Civil 3D?); trying the next port.");
+          continue;
+        }
+
+        _server = server;
+        Port = port;
+        return;
+      }
+
+      throw new InvalidOperationException(
+        requestedPort.HasValue
+          ? $"Port {firstPort} is already in use."
+          : $"Ports {firstPort}-{firstPort + attempts - 1} are all in use.",
+        lastError);
     }
+  }
+
+  private static int ConfiguredPort()
+  {
+    var text = Environment.GetEnvironmentVariable("CIVIL3D_MCP_PORT");
+    return int.TryParse(text, out var port) && port > 0 && port < 65536 ? port : DefaultPort;
   }
 
   public static void StopServer()
@@ -75,6 +124,7 @@ public static class PluginRuntime
     {
       return new PluginStatus(
         _server != null,
+        Port,
         _activeOperations > 0,
         _currentOperation,
         _queueDepth,

@@ -36,6 +36,17 @@ const MUTATING_CAPABILITIES = new Set<ToolCapability>([
 ]);
 const log = createLogger("DomainRuntime");
 
+/**
+ * CIVIL3D_READ_ONLY=1 makes this MCP server refuse every action that can change
+ * a drawing or write files (create, edit, delete, manage, generate, register,
+ * export, import). Use it for a second server pointed at a reference Civil 3D,
+ * e.g. a drafter's finished drawing that must never be written to.
+ */
+export function isReadOnlyServer(): boolean {
+  const value = (process.env.CIVIL3D_READ_ONLY ?? "").trim().toLowerCase();
+  return value === "1" || value === "true" || value === "yes";
+}
+
 export interface DomainActionDefinition<TArgs = JsonObject> {
   action: string;
   inputSchema: z.ZodType<TArgs>;
@@ -146,6 +157,18 @@ async function executeExposure(
   const actionDefinition = definition.actions[actionName];
   if (!actionDefinition) {
     throw new Error(`Action '${actionName}' is not defined for domain '${definition.domain}'.`);
+  }
+
+  if (isReadOnlyServer()) {
+    const blocked = actionDefinition.capabilities.filter((capability) => MUTATING_CAPABILITIES.has(capability));
+    if (blocked.length > 0) {
+      const error = new Error(
+        `This Civil 3D connection is read-only (CIVIL3D_READ_ONLY); '${exposure.toolName}' action '${actionName}' ` +
+        `can change the drawing (${blocked.join(", ")}) and was refused.`,
+      ) as Error & { code: string };
+      error.code = "CIVIL3D.READ_ONLY";
+      throw error;
+    }
   }
 
   const parsedArgs = actionDefinition.inputSchema.parse(resolved.args);

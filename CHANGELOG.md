@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Two Civil 3D sessions at once: the plugin listens on 8080 and, when that is
+  taken by another Civil 3D, on the next free port (8081, 8082, ... up to 8089).
+  `CIVIL3D_MCP_PORT` (environment) sets the first port, and the `C3DMCPPORT`
+  command moves a running listener to a chosen port. The port shows in the
+  startup message, `C3DMCPSTATUS` and `civil3d_health` (`port`,
+  `activeDrawing`). Point a second MCP server at it with `CIVIL3D_PORT`.
+- `CIVIL3D_READ_ONLY=1` on an MCP server refuses every action that can change a
+  drawing or write files (create, edit, delete, manage, generate, register,
+  export, import capabilities) with `CIVIL3D.READ_ONLY`; queries, captures and
+  office-survey points/build/score still work. Meant for a server pointed at a
+  reference drawing (e.g. the drafter's finished Survey drawing).
 - `civil3d_drawing` action `set_map` (plugin method `setOnlineMap`): turns the
   online map (Bing aerial, road, hybrid) on or off by running GEOMAP (falls
   back to GEOMAPMODE; GEOMAPMODE alone left the view dark) and reports

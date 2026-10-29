@@ -15,7 +15,7 @@ public sealed class PluginEntry : IExtensionApplication
     {
       PluginRuntime.StartServer();
       PluginLog.Info("PluginEntry", $"Civil3D MCP plugin initialized on port {PluginRuntime.Port}. Log file: {PluginLog.LogFilePath}");
-      WriteMessage("Civil3D MCP plugin initialized.");
+      WriteMessage($"Civil3D MCP plugin initialized on port {PluginRuntime.Port}.");
     }
     catch (System.Exception ex)
     {
@@ -44,6 +44,39 @@ public sealed class PluginEntry : IExtensionApplication
     WriteMessage($"Civil3D MCP listener started on port {PluginRuntime.Port}.");
   }
 
+  /// <summary>Moves the listener to a chosen port, e.g. 8081 for a Civil 3D
+  /// that should be reached by a second (read-only) MCP server.</summary>
+  [CommandMethod("C3DMCPPORT")]
+  public void PortCommand()
+  {
+    var doc = App.DocumentManager.MdiActiveDocument;
+    if (doc == null) return;
+    var options = new Autodesk.AutoCAD.EditorInput.PromptIntegerOptions($"\nMCP listener port (now {PluginRuntime.Port}): ")
+    {
+      AllowNone = false,
+      LowerLimit = 1024,
+      UpperLimit = 65535,
+      UseDefaultValue = true,
+      DefaultValue = PluginRuntime.Port,
+    };
+    var result = doc.Editor.GetInteger(options);
+    if (result.Status != Autodesk.AutoCAD.EditorInput.PromptStatus.OK) return;
+
+    var previous = PluginRuntime.Port;
+    PluginRuntime.StopServer();
+    try
+    {
+      PluginRuntime.StartServer(result.Value);
+      WriteMessage($"Civil3D MCP listener now on port {PluginRuntime.Port}.");
+    }
+    catch (System.Exception ex)
+    {
+      WriteMessage($"Could not use port {result.Value}: {ex.Message} Going back to port {previous}.");
+      try { PluginRuntime.StartServer(previous); }
+      catch (System.Exception restartError) { WriteMessage($"Listener could not restart: {restartError.Message} Run C3DMCPSTART."); }
+    }
+  }
+
   [CommandMethod("C3DMCPSTOP")]
   public void StopCommand()
   {
@@ -55,7 +88,7 @@ public sealed class PluginEntry : IExtensionApplication
   public void StatusCommand()
   {
     var status = PluginRuntime.GetStatus();
-    WriteMessage($"Civil3D MCP listener running: {status.IsRunning}; pending: {status.QueueDepth}; active: {status.OperationInProgress}; current: {status.CurrentOperation ?? "<none>"}");
+    WriteMessage($"Civil3D MCP listener running: {status.IsRunning}; port: {status.Port}; pending: {status.QueueDepth}; active: {status.OperationInProgress}; current: {status.CurrentOperation ?? "<none>"}");
   }
 
   private static void WriteMessage(string message)

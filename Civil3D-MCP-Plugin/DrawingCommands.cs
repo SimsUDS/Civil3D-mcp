@@ -21,6 +21,8 @@ public static class DrawingCommands
     object response = new Dictionary<string, object?>
     {
       ["connected"] = true,
+      ["port"] = status.Port,
+      ["activeDrawing"] = doc?.Name,
       ["civil3dVersion"] = App.GetSystemVariable("ACADVER")?.ToString(),
       ["pluginVersion"] = typeof(PluginEntry).Assembly.GetName().Version?.ToString(),
       ["drawingLoaded"] = doc != null,
