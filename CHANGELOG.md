@@ -3,9 +3,10 @@
 ## Unreleased
 
 - `civil3d_drawing` action `set_map` (plugin method `setOnlineMap`): turns the
-  online map (Bing aerial, road, hybrid) on or off through GEOMAPMODE and reports
-  the mode before and after. `capture_view` `map` / `mapAfter` now use
-  GEOMAPMODE too, and its result lists `mapMode` and the parameter keys the
+  online map (Bing aerial, road, hybrid) on or off by running GEOMAP (falls
+  back to GEOMAPMODE; GEOMAPMODE alone left the view dark) and reports
+  the mode before and after. `capture_view` `map` / `mapAfter` use
+  the same path, and its result lists `mapMode` and the parameter keys the
   plugin received.
 - `civil3d_office_survey build`: arcs with R 1000-5000 ft stay arcs when the POC
   is more than 0.5 ft off the chord (drafters draw gentle curves as one arc);

@@ -69,10 +69,7 @@ public static class ViewCaptureCommands
       var mapStatus = new List<string>();
       if (map is not null)
       {
-        using (doc.LockDocument())
-        {
-          mapStatus.Add(await SetMapAsync(editor, map));
-        }
+        mapStatus.Add(await SetMapAsync(editor, map));
       }
 
       if (window is not null)
@@ -172,10 +169,7 @@ public static class ViewCaptureCommands
 
       if (mapAfter is not null)
       {
-        using (doc.LockDocument())
-        {
-          mapStatus.Add(await SetMapAsync(editor, mapAfter));
-        }
+        mapStatus.Add(await SetMapAsync(editor, mapAfter));
       }
 
       return new Dictionary<string, object?>
@@ -379,22 +373,46 @@ public static class ViewCaptureCommands
     }
   }
 
-  /// <summary>Sets the online map through GEOMAPMODE; reports instead of failing so a capture still happens.</summary>
-  private static Task<string> SetMapAsync(Editor editor, string option)
+  /// <summary>
+  /// Sets the online map the way a user does: runs GEOMAP with the option
+  /// (that also loads the imagery; GEOMAPMODE alone only flips the mode and
+  /// can leave the view dark). Falls back to GEOMAPMODE if the command fails.
+  /// Reports instead of failing so a capture still happens.
+  /// </summary>
+  private static async Task<string> SetMapAsync(Editor editor, string option)
   {
+    var keyword = option switch
+    {
+      "aerial" => "_Aerial",
+      "road" => "_Road",
+      "hybrid" => "_Hybrid",
+      _ => "_Off",
+    };
+
+    string how;
     try
     {
-      App.SetSystemVariable("GEOMAPMODE", (short)Array.IndexOf(MapModes, option));
-      editor.UpdateScreen();
-      var now = CurrentMapMode();
-      return Task.FromResult(now == option
-        ? $"online map {option}: done"
-        : $"online map {option}: GEOMAPMODE reads {now} (is the drawing geolocated and are you signed in to Autodesk?)");
+      await editor.CommandAsync("_.GEOMAP", keyword);
+      how = "GEOMAP";
     }
-    catch (System.Exception ex)
+    catch (System.Exception commandError)
     {
-      return Task.FromResult($"online map {option} failed: {ex.Message} (is the drawing geolocated and are you signed in to Autodesk?)");
+      try
+      {
+        App.SetSystemVariable("GEOMAPMODE", (short)Array.IndexOf(MapModes, option));
+        editor.Regen();
+        how = $"GEOMAPMODE (GEOMAP failed: {commandError.Message})";
+      }
+      catch (System.Exception ex)
+      {
+        return $"online map {option} failed: {ex.Message} (is the drawing geolocated and are you signed in to Autodesk?)";
+      }
     }
+
+    var now = CurrentMapMode();
+    return now == option
+      ? $"online map {option}: done via {how}"
+      : $"online map {option}: {how} ran but GEOMAPMODE reads {now} (is the drawing geolocated and are you signed in to Autodesk?)";
   }
 
   /// <summary>
@@ -413,10 +431,7 @@ public static class ViewCaptureCommands
       string? status = null;
       if (map is not null)
       {
-        using (doc.LockDocument())
-        {
-          status = await SetMapAsync(doc.Editor, map);
-        }
+        status = await SetMapAsync(doc.Editor, map);
       }
 
       return new Dictionary<string, object?>
