@@ -1,5 +1,6 @@
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Geometry;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -18,6 +19,9 @@ namespace Civil3DMcpPlugin;
 /// so it includes the online map; the Civil 3D window must be visible and not
 /// covered. mode "render" uses Document.CapturePreviewImage (may leave out
 /// the online map).
+/// map: "aerial" | "road" | "hybrid" | "off" runs GEOMAP first (needs the
+/// drawing geolocated and the user signed in to Autodesk); mapAfter runs it
+/// again after the capture (e.g. "off").
 /// </summary>
 public static class ViewCaptureCommands
 {
@@ -54,12 +58,19 @@ public static class ViewCaptureCommands
     var renderWidth = Math.Clamp(PluginRuntime.GetOptionalInt(parameters, "width") ?? 1600, 200, 4000);
     var window = PluginRuntime.GetParameter(parameters, "window") as JsonObject;
     var pad = window?["pad"]?.GetValue<double>() ?? 0.0;
+    var map = MapOption(PluginRuntime.GetOptionalString(parameters, "map"), "map");
+    var mapAfter = MapOption(PluginRuntime.GetOptionalString(parameters, "mapAfter"), "mapAfter");
 
     return await CivilExecution.ExecuteInCommandContextAsync<object?>(async () =>
     {
       var doc = App.DocumentManager.MdiActiveDocument
         ?? throw new JsonRpcDispatchException("CIVIL3D.NO_DRAWING", "No active drawing is open in Civil 3D.");
       var editor = doc.Editor;
+      var mapStatus = new List<string>();
+      if (map is not null)
+      {
+        mapStatus.Add(await SetMapAsync(editor, map));
+      }
 
       if (window is not null)
       {
@@ -156,9 +167,15 @@ public static class ViewCaptureCommands
         source = how;
       }
 
+      if (mapAfter is not null)
+      {
+        mapStatus.Add(await SetMapAsync(editor, mapAfter));
+      }
+
       return new Dictionary<string, object?>
       {
         ["outFile"] = path,
+        ["map"] = mapStatus,
         ["mode"] = mode,
         ["source"] = source,
         ["pixelWidth"] = pixelWidth,
@@ -230,6 +247,134 @@ public static class ViewCaptureCommands
       Right = docOrigin.X + docClient.Right - docClient.Left,
       Bottom = docOrigin.Y + docClient.Bottom - docClient.Top,
     }, "screen: document window (view window not found; extents may not line up)");
+  }
+
+  /// <summary>
+  /// geolocateDrawing: gives the drawing a geographic location (what GEOMAP and
+  /// GEOMAPIMAGE need) from a coordinate system code, by default the Civil 3D
+  /// drawing settings' zone (e.g. CA83-VF). Grid coordinates, design point =
+  /// reference point = the given point or the middle of the drawing extents,
+  /// north = +Y, unity scale. Reports and keeps an existing location unless
+  /// overwrite is true.
+  /// </summary>
+  public static Task<object?> GeolocateDrawingAsync(JsonObject? parameters)
+  {
+    var overwrite = PluginRuntime.GetOptionalBool(parameters, "overwrite") ?? false;
+    var requestedCode = PluginRuntime.GetOptionalString(parameters, "coordinateSystem");
+    var pointNode = PluginRuntime.GetParameter(parameters, "point") as JsonObject;
+
+    return CivilExecution.WriteAsync<object?>((doc, civilDoc, database, transaction) =>
+    {
+      var existingId = ObjectId.Null;
+      try
+      {
+        existingId = database.GeoDataObject;
+      }
+      catch (Autodesk.AutoCAD.Runtime.Exception)
+      {
+        existingId = ObjectId.Null;
+      }
+
+      if (!existingId.IsNull && !overwrite)
+      {
+        var current = (GeoLocationData)transaction.GetObject(existingId, OpenMode.ForRead);
+        return new Dictionary<string, object?>
+        {
+          ["changed"] = false,
+          ["alreadyGeolocated"] = true,
+          ["coordinateSystem"] = current.CoordinateSystem,
+          ["designPoint"] = new Dictionary<string, object?> { ["x"] = current.DesignPoint.X, ["y"] = current.DesignPoint.Y },
+          ["note"] = "Drawing already has a geographic location; pass overwrite=true to replace it.",
+        };
+      }
+
+      var code = string.IsNullOrWhiteSpace(requestedCode)
+        ? civilDoc.Settings.DrawingSettings.UnitZoneSettings.CoordinateSystemCode
+        : requestedCode.Trim();
+      if (string.IsNullOrWhiteSpace(code))
+      {
+        throw new JsonRpcDispatchException("CIVIL3D.INVALID_INPUT", "No coordinate system: pass coordinateSystem or set the zone in Drawing Settings.");
+      }
+
+      Point3d point;
+      if (pointNode is not null)
+      {
+        point = new Point3d(Required(pointNode, "x"), Required(pointNode, "y"), 0);
+      }
+      else
+      {
+        var min = database.Extmin;
+        var max = database.Extmax;
+        point = new Point3d((min.X + max.X) / 2, (min.Y + max.Y) / 2, 0);
+      }
+
+      if (!existingId.IsNull)
+      {
+        var old = transaction.GetObject(existingId, OpenMode.ForWrite);
+        old.Erase();
+      }
+
+      var geo = new GeoLocationData
+      {
+        BlockTableRecordId = SymbolUtilityServices.GetBlockModelSpaceId(database),
+      };
+      geo.PostToDb();
+      geo.CoordinateSystem = code;
+      geo.TypeOfCoordinates = TypeOfCoordinates.CoordinateTypeGrid;
+      geo.HorizontalUnits = database.Insunits;
+      geo.VerticalUnits = database.Insunits;
+      geo.DesignPoint = point;
+      geo.ReferencePoint = point;
+      geo.NorthDirectionVector = Vector2d.YAxis;
+      geo.ScaleEstimationMethod = ScaleEstimationMethod.ScaleEstMethodUnity;
+
+      return new Dictionary<string, object?>
+      {
+        ["changed"] = true,
+        ["replacedExisting"] = !existingId.IsNull,
+        ["coordinateSystem"] = code,
+        ["designPoint"] = new Dictionary<string, object?> { ["x"] = Math.Round(point.X, 4), ["y"] = Math.Round(point.Y, 4) },
+        ["horizontalUnits"] = database.Insunits.ToString(),
+      };
+    });
+  }
+
+  private static string? MapOption(string? value, string name)
+  {
+    if (string.IsNullOrWhiteSpace(value))
+    {
+      return null;
+    }
+
+    var option = value.Trim().ToLowerInvariant();
+    if (option is not ("aerial" or "road" or "hybrid" or "off"))
+    {
+      throw new JsonRpcDispatchException("CIVIL3D.INVALID_INPUT", $"captureView {name} must be aerial, road, hybrid or off.");
+    }
+
+    return option;
+  }
+
+  /// <summary>Runs GEOMAP with the option; reports instead of failing so the capture still happens.</summary>
+  private static async Task<string> SetMapAsync(Editor editor, string option)
+  {
+    var keyword = option switch
+    {
+      "aerial" => "_Aerial",
+      "road" => "_Road",
+      "hybrid" => "_Hybrid",
+      _ => "_Off",
+    };
+
+    try
+    {
+      await editor.CommandAsync("_.GEOMAP", keyword);
+      return $"GEOMAP {option}: done";
+    }
+    catch (System.Exception ex)
+    {
+      return $"GEOMAP {option} failed: {ex.Message} (is the drawing geolocated and are you signed in to Autodesk?)";
+    }
   }
 
   private static double Required(JsonObject window, string name) =>

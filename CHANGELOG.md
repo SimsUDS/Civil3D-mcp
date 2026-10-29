@@ -7,7 +7,14 @@
   aerial) to load, and save the drawing view as a PNG with its world extents
   and ft per pixel. `mode: "screen"` (default) copies the view's pixels from the
   screen so the online map is included; `"render"` uses CapturePreviewImage.
-  The plugin now builds with WinForms/System.Drawing (global usings removed).
+  `map` / `mapAfter` (aerial, road, hybrid, off) run GEOMAP before / after the
+  capture (the drawing must be geolocated and the user signed in to Autodesk).
+- `civil3d_drawing` action `geolocate` (plugin method `geolocateDrawing`, needs
+  approval): sets the drawing's geographic location from its Civil 3D
+  coordinate system so GEOMAP works; keeps an existing location unless
+  `overwrite`.
+- Plugin builds with WinForms/System.Drawing for the PNG capture (their global
+  usings removed so Color, Point etc. stay unambiguous).
 - `civil3d_entity` query with `includeGeometry`: polyline vertices carry `bulge`
   (tan(sweep/4), + = counterclockwise) when the segment starting there is an arc.
 - `civil3d_entity` create (and `apply` job creates): inserts take `explode: true`
