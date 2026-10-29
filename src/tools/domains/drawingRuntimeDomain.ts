@@ -10,7 +10,7 @@ const GenericResponseSchema = z.object({}).passthrough();
 
 const DrawingInfoArgs = z.object({ action: z.literal("info") });
 const DrawingNewArgs = z.object({ action: z.literal("new"), templatePath: z.string().optional() });
-const DrawingSaveArgs = z.object({ action: z.literal("save"), saveAs: z.string().optional(), overwrite: z.boolean().optional(), map: z.enum(["aerial", "road", "hybrid", "off"]).optional(), mapAfter: z.enum(["aerial", "road", "hybrid", "off"]).optional() });
+const DrawingSaveArgs = z.object({ action: z.literal("save"), saveAs: z.string().optional(), overwrite: z.boolean().optional() });
 const DrawingUndoArgs = z.object({ action: z.literal("undo"), steps: z.number().int().min(1).max(10).optional() });
 const DrawingRedoArgs = z.object({ action: z.literal("redo"), steps: z.number().int().min(1).max(10).optional() });
 const DrawingSettingsArgs = z.object({ action: z.literal("settings") });
@@ -18,7 +18,7 @@ const SelectedObjectsArgs = z.object({ action: z.literal("selected_objects_info"
 const ObjectTypesArgs = z.object({ action: z.literal("list_object_types") });
 const CaptureWindowSchema = z.object({ minX: z.number(), minY: z.number(), maxX: z.number(), maxY: z.number(), pad: z.number().min(0).optional() });
 const GeolocateArgs = z.object({ action: z.literal("geolocate"), coordinateSystem: z.string().optional(), point: z.object({ x: z.number(), y: z.number() }).optional(), overwrite: z.boolean().optional() });
-const CaptureViewArgs = z.object({ action: z.literal("capture_view"), outFile: z.string().min(1), window: CaptureWindowSchema.optional(), mode: z.enum(["screen", "render"]).optional(), waitMs: z.number().int().min(0).max(20000).optional(), width: z.number().int().min(200).max(4000).optional(), overwrite: z.boolean().optional() });
+const CaptureViewArgs = z.object({ action: z.literal("capture_view"), outFile: z.string().min(1), window: CaptureWindowSchema.optional(), mode: z.enum(["screen", "render"]).optional(), waitMs: z.number().int().min(0).max(20000).optional(), width: z.number().int().min(200).max(4000).optional(), overwrite: z.boolean().optional(), map: z.enum(["aerial", "road", "hybrid", "off"]).optional(), mapAfter: z.enum(["aerial", "road", "hybrid", "off"]).optional() });
 
 export const DRAWING_RUNTIME_DOMAIN_DEFINITION: DomainToolDefinition = {
   domain: "drawing",
