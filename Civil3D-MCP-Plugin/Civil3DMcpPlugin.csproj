@@ -3,6 +3,8 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- System.Drawing for captureView (screen capture to PNG). -->
+    <UseWindowsForms>true</UseWindowsForms>
     <NoWarn>$(NoWarn);MSB3277</NoWarn>
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
@@ -14,6 +16,12 @@
     <Error Condition="!Exists('$(Civil3DReferencesPath)\accoremgd.dll') Or !Exists('$(Civil3DReferencesPath)\AcDbMgd.dll') Or !Exists('$(Civil3DReferencesPath)\acmgd.dll') Or !Exists('$(Civil3DReferencesPath)\AecBaseMgd.dll') Or !Exists('$(Civil3DReferencesPath)\AeccDbMgd.dll') Or !Exists('$(Civil3DReferencesPath)\AeccPressurePipesMgd.dll')"
       Text="Civil 3D 2026 managed references were not found at '$(Civil3DReferencesPath)'. Set /p:Civil3DReferencesPath=&lt;licensed Civil 3D/ObjectARX reference directory&gt;. Autodesk assemblies must not be committed." />
   </Target>
+
+  <ItemGroup>
+    <!-- Keep WinForms/Drawing out of the global usings so Color, Point, Application etc. stay unambiguous. -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
 
   <ItemGroup>
     <Reference Include="accoremgd">

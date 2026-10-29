@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `civil3d_drawing` action `capture_view` (plugin method `captureView`): optionally
+  zoom to a window in plan view, wait for online map tiles (GEOMAP, e.g. Bing
+  aerial) to load, and save the drawing view as a PNG with its world extents
+  and ft per pixel. `mode: "screen"` (default) copies the view's pixels from the
+  screen so the online map is included; `"render"` uses CapturePreviewImage.
+  The plugin now builds with WinForms/System.Drawing (global usings removed).
 - `civil3d_entity` query with `includeGeometry`: polyline vertices carry `bulge`
   (tan(sweep/4), + = counterclockwise) when the segment starting there is an arc.
 - `civil3d_entity` create (and `apply` job creates): inserts take `explode: true`
