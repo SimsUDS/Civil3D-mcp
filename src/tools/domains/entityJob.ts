@@ -236,6 +236,8 @@ export interface EntityJobResult extends JsonObject {
   stage: "create" | "copy" | "edit" | "hatch" | "erase" | "done";
   created: number;
   createdHandles: string[];
+  /** Exploded inserts: create index -> handles of the pieces (createdHandles holds the first piece). */
+  explodedPieces?: Record<string, string[]>;
   importedBlocks: string[];
   createWarnings: string[];
   copies: Record<string, number>;
@@ -279,8 +281,13 @@ export async function runEntityJob(job: EntityJob, send: SendFn): Promise<Entity
       const response = await send("createEntities", {
         creates,
         ...(job.blockSource ? { blockSource: job.blockSource } : {}),
-      }) as { created?: Array<{ handle?: string }>; count?: number; importedBlocks?: string[]; warnings?: string[] };
+      }) as { created?: Array<{ handle?: string; pieceHandles?: string[] }>; count?: number; importedBlocks?: string[]; warnings?: string[] };
       result.createdHandles = (response?.created ?? []).map((entry) => String(entry.handle));
+      const pieces: Record<string, string[]> = {};
+      (response?.created ?? []).forEach((entry, index) => {
+        if (Array.isArray(entry.pieceHandles)) pieces[String(index)] = entry.pieceHandles.map(String);
+      });
+      if (Object.keys(pieces).length > 0) result.explodedPieces = pieces;
       result.created = response?.count ?? result.createdHandles.length;
       result.importedBlocks = response?.importedBlocks ?? [];
       result.createWarnings = response?.warnings ?? [];

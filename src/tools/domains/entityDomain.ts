@@ -78,6 +78,8 @@ const CreateSchema = z.object({
   position: Point2DSchema.optional().describe("insert: insertion point; text: text position."),
   rotationDeg: z.number().optional().describe("insert / text: rotation in degrees CCW."),
   scale: z.number().positive().optional().describe("insert: uniform scale (default 1)."),
+  explode: z.boolean().optional().describe("insert: explode the block into its pieces right after inserting it (pieces on layer 0 go to the insert's layer). The result lists the piece handles."),
+  clipLength: z.number().positive().optional().describe("insert with explode: trim the pieces at this distance from the insertion point along the insert's rotation (e.g. a GUY block inserted at the anchor and aimed at the pole, clipped at the pole center). Lines and straight polyline segments are cut; other pieces past it are dropped."),
   dynamicProperties: z.record(z.string(), z.union([z.string(), z.number()])).optional().describe("insert: dynamic block properties by name (visibility state, distance, angle in radians)."),
   attributes: z.record(z.string(), z.string()).optional().describe("insert: attribute values by tag."),
   points: z.array(z.object({ x: z.number(), y: z.number(), bulge: z.number().optional() })).min(2).optional()

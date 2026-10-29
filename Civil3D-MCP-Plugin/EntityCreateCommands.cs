@@ -86,19 +86,30 @@ public static partial class EntityCommands
         space.Record.AppendEntity(entity);
         transaction.AddNewlyCreatedDBObject(entity, true);
 
+        List<string>? pieces = null;
         if (entity is BlockReference blockRef)
         {
           FinishInsert(blockRef, item, transaction, index, warnings);
+          if (item["explode"]?.GetValue<bool>() == true)
+          {
+            pieces = ExplodeInsert(blockRef, item, space.Record, transaction, index, warnings);
+          }
         }
 
-        created.Add(new Dictionary<string, object?>
+        var entry = new Dictionary<string, object?>
         {
           ["index"] = index,
           ["id"] = item["id"]?.GetValue<string>(),
           ["type"] = type == "block" ? "insert" : type,
-          ["handle"] = entity.Handle.ToString(),
+          ["handle"] = pieces is { Count: > 0 } ? pieces[0] : entity.Handle.ToString(),
           ["layer"] = entity.Layer,
-        });
+        };
+        if (pieces is not null)
+        {
+          entry["pieceHandles"] = pieces;
+        }
+
+        created.Add(entry);
       }
 
       return new Dictionary<string, object?>
@@ -190,6 +201,192 @@ public static partial class EntityCommands
         warnings.Add($"Create {index}: attribute '{tag}' not found.");
       }
     }
+  }
+
+  /// <summary>
+  /// Explodes a just-inserted block into its pieces (like EXPLODE; attribute
+  /// definitions are dropped). Pieces on layer 0 take the insert's layer and
+  /// ByBlock color becomes ByLayer, like BURST. With clipLength, every piece is
+  /// trimmed at that distance from the insertion point along the insert's
+  /// rotation: lines and straight polyline segments are cut there, other pieces
+  /// whose middle lies past it are dropped. The reference itself is erased.
+  /// </summary>
+  private static List<string> ExplodeInsert(
+    BlockReference blockRef, JsonObject item, BlockTableRecord space, Transaction transaction, int index, List<string> warnings)
+  {
+    double? clip = item["clipLength"]?.GetValue<double>();
+    if (clip is <= 0)
+    {
+      throw new JsonRpcDispatchException("CIVIL3D.INVALID_INPUT", $"Create {index}: clipLength must be positive.");
+    }
+
+    var origin = blockRef.Position;
+    var along = new Vector3d(Math.Cos(blockRef.Rotation), Math.Sin(blockRef.Rotation), 0);
+    double X(Point3d point) => (point - origin).DotProduct(along);
+
+    var parts = new DBObjectCollection();
+    blockRef.Explode(parts);
+    var handles = new List<string>();
+    var cutArcs = false;
+    foreach (DBObject part in parts)
+    {
+      if (part is not Entity piece || part is AttributeDefinition)
+      {
+        part.Dispose();
+        continue;
+      }
+
+      var keep = clip is double length ? ClipPiece(piece, X, length, ref cutArcs) : piece;
+      if (keep is null)
+      {
+        piece.Dispose();
+        continue;
+      }
+
+      if (string.Equals(piece.Layer, "0", StringComparison.OrdinalIgnoreCase))
+      {
+        keep.LayerId = blockRef.LayerId;
+      }
+
+      if (keep.ColorIndex == 0)
+      {
+        keep.ColorIndex = 256;
+      }
+
+      space.AppendEntity(keep);
+      transaction.AddNewlyCreatedDBObject(keep, true);
+      handles.Add(keep.Handle.ToString());
+      if (!ReferenceEquals(keep, piece))
+      {
+        piece.Dispose();
+      }
+    }
+
+    blockRef.Erase();
+    if (cutArcs)
+    {
+      warnings.Add($"Create {index}: clipLength cut through a polyline arc segment; that segment was ended with a straight line.");
+    }
+
+    return handles;
+  }
+
+  private static Entity? ClipPiece(Entity piece, Func<Point3d, double> x, double length, ref bool cutArcs)
+  {
+    switch (piece)
+    {
+      case Line line:
+      {
+        var a = x(line.StartPoint);
+        var b = x(line.EndPoint);
+        if (a > length && b > length)
+        {
+          return null;
+        }
+
+        if (a <= length && b <= length)
+        {
+          return line;
+        }
+
+        var cut = line.StartPoint + (line.EndPoint - line.StartPoint) * ((length - a) / (b - a));
+        if (a > length)
+        {
+          line.StartPoint = cut;
+        }
+        else
+        {
+          line.EndPoint = cut;
+        }
+
+        return line;
+      }
+
+      case Polyline polyline:
+        return ClipPolyline(polyline, x, length, ref cutArcs);
+
+      default:
+      {
+        try
+        {
+          var bounds = piece.GeometricExtents;
+          var middle = bounds.MinPoint + (bounds.MaxPoint - bounds.MinPoint) * 0.5;
+          return x(middle) > length ? null : piece;
+        }
+        catch (Autodesk.AutoCAD.Runtime.Exception)
+        {
+          return piece;
+        }
+      }
+    }
+  }
+
+  /// <summary>Keeps the first run of the polyline that lies at or before the cut, ending exactly on it.</summary>
+  private static Polyline? ClipPolyline(Polyline polyline, Func<Point3d, double> x, double length, ref bool cutArcs)
+  {
+    var count = polyline.NumberOfVertices;
+    if (polyline.Closed)
+    {
+      return x(polyline.GeometricExtents.MaxPoint) <= length ? polyline : null;
+    }
+
+    var result = new Polyline();
+    var k = 0;
+    var started = false;
+    for (var i = 0; i < count; i++)
+    {
+      var p = polyline.GetPoint3dAt(i);
+      var xp = x(p);
+      var inside = xp <= length;
+      var bulge = i < count - 1 ? polyline.GetBulgeAt(i) : 0.0;
+      if (inside)
+      {
+        result.AddVertexAt(k++, new Point2d(p.X, p.Y), bulge, polyline.GetStartWidthAt(i), polyline.GetEndWidthAt(i));
+        started = true;
+      }
+
+      if (i == count - 1)
+      {
+        break;
+      }
+
+      var q = polyline.GetPoint3dAt(i + 1);
+      var xq = x(q);
+      if (inside == (xq <= length))
+      {
+        continue;
+      }
+
+      if (Math.Abs(bulge) > 1e-9)
+      {
+        cutArcs = true;
+      }
+
+      var c = p + (q - p) * ((length - xp) / (xq - xp));
+      if (inside)
+      {
+        result.SetBulgeAt(k - 1, 0);
+        result.AddVertexAt(k++, new Point2d(c.X, c.Y), 0, 0, 0);
+        break;
+      }
+
+      if (!started)
+      {
+        result.AddVertexAt(k++, new Point2d(c.X, c.Y), 0, 0, 0);
+        started = true;
+      }
+    }
+
+    if (result.NumberOfVertices < 2)
+    {
+      result.Dispose();
+      return null;
+    }
+
+    result.SetPropertiesFrom(polyline);
+    result.Elevation = polyline.Elevation;
+    result.Normal = polyline.Normal;
+    return result;
   }
 
   private static Polyline MakePolyline(JsonObject item, int index)

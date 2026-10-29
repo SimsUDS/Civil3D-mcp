@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- `civil3d_entity` create (and `apply` job creates): inserts take `explode: true`
+  (explode the block right after inserting it; pieces on layer 0 take the
+  insert's layer, ByBlock color becomes ByLayer) and `clipLength` (trim the
+  pieces at that distance from the insertion point along the insert's rotation).
+  Used for GUY blocks: insert at the anchor, aim at the pole, clip at the pole
+  center. Apply results list the pieces as `explodedPieces` (create index ->
+  handles).
 - `blockSource` can be a folder of one-block drawings (e.g. `C:\civ3dmcp\TOPO LW`):
   block NAME is taken from `NAME.dwg` there, inserted as a whole drawing like
   INSERT with a file. A .dwg blockSource also falls back to that when the
