@@ -23,7 +23,8 @@ import path from "node:path";
  * Stages run in order: creates, copies, edits, hatches (so hatch boundaries can
  * be copied and edited first), erase. Creates are new entities (blocks,
  * polylines with bulges, circles, arcs, lines, text); blockSource is a .dwg
- * that missing block definitions are imported from.
+ * that missing block definitions are imported from, or a folder of one-block
+ * drawings named <block name>.dwg.
  */
 
 export const MAX_JOB_FILE_BYTES = 8 * 1024 * 1024;

@@ -10,7 +10,8 @@ namespace Civil3DMcpPlugin;
 /// Item types: insert (block reference, with rotation, scale, dynamic
 /// properties and attributes), polyline (per-vertex bulge for true arcs),
 /// circle, arc, line and text. Missing layers are created. Missing block
-/// definitions can be imported from a source DWG (blockSource).
+/// definitions are imported from blockSource: a .dwg, or a folder of
+/// one-block drawings named after the blocks.
 /// </summary>
 public static partial class EntityCommands
 {
@@ -230,9 +231,15 @@ public static partial class EntityCommands
   }
 
   /// <summary>
-  /// Imports block definitions that the batch inserts but this drawing lacks,
-  /// from blockSource (a .dwg inside the configured import roots). Existing
-  /// definitions are never overwritten.
+  /// Makes sure every block the batch inserts is defined before anything is
+  /// drawn. Missing definitions come from blockSource, which is either:
+  /// - a .dwg that holds the blocks as definitions (e.g. a finished drawing or
+  ///   a symbols library), or a one-block file named after the block; or
+  /// - a folder of one-block drawings (e.g. "C:\civ3dmcp\TOPO LW"): block
+  ///   NAME comes from "NAME.dwg" in that folder.
+  /// A one-block file is inserted as a whole drawing, like INSERT with a file.
+  /// Existing definitions are never overwritten. Every path is checked against
+  /// the import roots. Fails before drawing anything if a block is still missing.
   /// </summary>
   private static List<string> EnsureBlockDefinitions(Database database, Transaction transaction, JsonArray items, string? blockSource)
   {
@@ -241,31 +248,125 @@ public static partial class EntityCommands
       .Where(item => (item["type"]?.GetValue<string>() ?? "").Trim().ToLowerInvariant() is "insert" or "block")
       .Select(item => item["blockName"]?.GetValue<string>())
       .Where(name => !string.IsNullOrWhiteSpace(name))
-      .Select(name => name!)
+      .Select(name => name!.Trim())
       .Distinct(StringComparer.OrdinalIgnoreCase)
       .ToList();
 
     var blockTable = (BlockTable)transaction.GetObject(database.BlockTableId, OpenMode.ForRead);
     var missing = wanted.Where(name => !blockTable.Has(name)).ToList();
-    if (missing.Count == 0 || string.IsNullOrWhiteSpace(blockSource))
+    var imported = new List<string>();
+    if (missing.Count == 0)
     {
-      return new List<string>();
+      return imported;
     }
 
-    var path = FileBoundary.ResolveImportPath(blockSource, ".dwg");
-    var imported = new List<string>();
-    using var source = new Database(false, true);
-    source.ReadDwgFile(path, FileOpenMode.OpenForReadAndAllShare, true, "");
+    if (string.IsNullOrWhiteSpace(blockSource))
+    {
+      throw new JsonRpcDispatchException(
+        "CIVIL3D.OBJECT_NOT_FOUND",
+        $"Blocks not defined in this drawing: {string.Join(", ", missing)}. Pass blockSource (a .dwg or a folder of block .dwg files) to import them.");
+    }
+
+    var isFile = string.Equals(Path.GetExtension(blockSource.Trim()), ".dwg", StringComparison.OrdinalIgnoreCase);
+    var stillMissing = new List<string>();
+
+    if (isFile)
+    {
+      var path = FileBoundary.ResolveImportPath(blockSource.Trim(), ".dwg");
+      var fileName = Path.GetFileNameWithoutExtension(path);
+      using var source = OpenSource(path);
+      var fromTable = CloneDefinitions(database, source, missing);
+      imported.AddRange(fromTable);
+      foreach (var name in missing.Where(name => !fromTable.Contains(name, StringComparer.OrdinalIgnoreCase)))
+      {
+        if (string.Equals(name, fileName, StringComparison.OrdinalIgnoreCase))
+        {
+          database.Insert(name, source, true);
+          imported.Add($"{name} (file)");
+        }
+        else
+        {
+          stillMissing.Add(name);
+        }
+      }
+    }
+    else
+    {
+      var folder = blockSource.Trim().TrimEnd('\\', '/');
+      var invalid = Path.GetInvalidFileNameChars();
+      foreach (var name in missing)
+      {
+        if (name.IndexOfAny(invalid) >= 0)
+        {
+          stillMissing.Add(name);
+          continue;
+        }
+
+        string path;
+        try
+        {
+          path = FileBoundary.ResolveImportPath(Path.Combine(folder, name + ".dwg"), ".dwg");
+        }
+        catch (JsonRpcDispatchException error) when (error.Code == "CIVIL3D.OBJECT_NOT_FOUND")
+        {
+          stillMissing.Add(name);
+          continue;
+        }
+
+        using var source = OpenSource(path);
+        if (CloneDefinitions(database, source, new List<string> { name }).Count == 1)
+        {
+          imported.Add(name);
+        }
+        else
+        {
+          database.Insert(name, source, true);
+          imported.Add($"{name} (file)");
+        }
+      }
+    }
+
+    if (stillMissing.Count > 0)
+    {
+      throw new JsonRpcDispatchException(
+        "CIVIL3D.OBJECT_NOT_FOUND",
+        $"Blocks not found in this drawing or in blockSource '{blockSource}': {string.Join(", ", stillMissing)}." +
+        (isFile ? "" : " Each needs a file named <block name>.dwg in that folder."));
+    }
+
+    return imported;
+  }
+
+  private static Database OpenSource(string path)
+  {
+    var source = new Database(false, true);
+    try
+    {
+      source.ReadDwgFile(path, FileOpenMode.OpenForReadAndAllShare, true, "");
+      source.CloseInput(true);
+      return source;
+    }
+    catch
+    {
+      source.Dispose();
+      throw;
+    }
+  }
+
+  /// <summary>Copies the named definitions that the source's block table has; returns the names copied.</summary>
+  private static List<string> CloneDefinitions(Database database, Database source, List<string> names)
+  {
     var ids = new ObjectIdCollection();
+    var found = new List<string>();
     using (var sourceTransaction = source.TransactionManager.StartTransaction())
     {
       var sourceTable = (BlockTable)sourceTransaction.GetObject(source.BlockTableId, OpenMode.ForRead);
-      foreach (var name in missing)
+      foreach (var name in names)
       {
         if (sourceTable.Has(name))
         {
           ids.Add(sourceTable[name]);
-          imported.Add(name);
+          found.Add(name);
         }
       }
 
@@ -274,11 +375,10 @@ public static partial class EntityCommands
 
     if (ids.Count > 0)
     {
-      var mapping = new IdMapping();
-      source.WblockCloneObjects(ids, database.BlockTableId, mapping, DuplicateRecordCloning.Ignore, false);
+      source.WblockCloneObjects(ids, database.BlockTableId, new IdMapping(), DuplicateRecordCloning.Ignore, false);
     }
 
-    return imported;
+    return found;
   }
 
   private static Point2d RequirePoint(JsonObject item, string name, int index) =>

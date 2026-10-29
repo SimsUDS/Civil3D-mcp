@@ -11,7 +11,7 @@
  * Plan (JSON):
  * {
  *   version: 1,
- *   blockSource?: "C:\\...\\symbols.dwg",
+ *   blockSource?: "C:\\civ3dmcp\\TOPO LW",         // a .dwg, or a folder of <block name>.dwg files
  *   reference?: { layers: ["CURB"] },            // rotation reference: drawing lines on these layers + plan strings on them
  *   strings?: [{ layer, pts: [Ref | {poc: Ref}], closed?, offset?, colorIndex?, id? }],
  *   inserts?: [{ block, at: Ref, layer, rotate?: number | "curb" | "curb+90" | "face-curb", rotateAdd?,

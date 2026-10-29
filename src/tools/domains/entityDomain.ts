@@ -124,7 +124,7 @@ const ApplyArgs = z.object({
 });
 
 const JobFileDescription =
-  "apply: absolute path to a .json job file on this machine: {version:1, blockSource?: \"<.dwg with block definitions>\", " +
+  "apply: absolute path to a .json job file on this machine: {version:1, blockSource?: \"<.dwg with block definitions, or a folder of <block name>.dwg files>\", " +
   "creates:[{type: insert|polyline|circle|arc|line|text, layer, ...create fields}], copies:[{id, handles|window, dx, dy, mirrorX?, mode?, space?}], " +
   "edits:[{handle|ref:\"<copyId>:<sourceHandle>\", ...edit fields}], hatches:[{boundaries:[handle | {ref}], like?: handle | {ref}, pattern?, scale?, angleDeg?, layer?}], " +
   "erase:[handle | {ref}]}. Stages run creates, copies, edits, hatches, erase. Approval is bound to the file's SHA-256, " +
@@ -250,7 +250,7 @@ export const ENTITY_DOMAIN_DEFINITION: DomainToolDefinition = {
       description:
         "Reads, creates, copies, moves, edits and erases ordinary AutoCAD entities (blocks, lines, polylines, text, MText, multileaders, attributes) in model space or a layout. " +
         "query: list entities in a window with handles, block names, attribute values, text and geometry. " +
-        "create: batch-draw new entities in one transaction: block inserts (rotation, scale, dynamic properties, attributes; missing definitions imported from blockSource .dwg), polylines with per-vertex bulge, circles, arcs, lines and text; missing layers are created. " +
+        "create: batch-draw new entities in one transaction: block inserts (rotation, scale, dynamic properties, attributes; missing definitions imported from blockSource: a .dwg, or a folder of one-block <name>.dwg files inserted like INSERT with a file), polylines with per-vertex bulge, circles, arcs, lines and text; missing layers are created. " +
         "copy: batch copy or move entities by handles and/or window with a dx/dy offset and optional mirror; returns old-to-new handle maps. " +
         "edit: batch change text, attribute values, vertices/endpoints, circle/arc center, radius and arc angles, dimension points, color, linetype or layer by handle. " +
         "erase: delete entities by handle. " +
@@ -268,7 +268,7 @@ export const ENTITY_DOMAIN_DEFINITION: DomainToolDefinition = {
         includeGeometry: z.boolean().optional(),
         outFile: z.string().min(1).optional().describe("query: absolute path of a .json file on this machine to write the full result to; the reply is then only counts and the path."),
         creates: z.array(CreateSchema).optional().describe("create: entities to draw."),
-        blockSource: z.string().min(1).optional().describe("create: absolute path of a .dwg to import missing block definitions from (must be inside the configured import roots)."),
+        blockSource: z.string().min(1).optional().describe("create: absolute path of a .dwg holding the block definitions, or of a folder of one-block drawings named <block name>.dwg (e.g. C:\\civ3dmcp\\TOPO LW). Must be inside the configured import roots."),
         operations: z.array(CopyOperationSchema).optional(),
         edits: z.array(EditSchema).optional(),
         handles: z.array(HandleSchema).optional(),

@@ -169,7 +169,7 @@ export const OFFICE_SURVEY_DOMAIN_DEFINITION: DomainToolDefinition = {
       description:
         "Office survey (OS) engine for turning field COGO shots into linework and symbols. " +
         "points: parsed shots (code, distances, LO partner, resolved LO offset points; shots with a distance but no LO are flagged), inline or to outFile. " +
-        "build: resolve a plan that names point numbers into a civil3d_entity apply job file (outFile). Plan: {blockSource?, reference?:{layers:[\"CURB\"]}, " +
+        "build: resolve a plan that names point numbers into a civil3d_entity apply job file (outFile). Plan: {blockSource? (a .dwg, or a folder of <block name>.dwg files), reference?:{layers:[\"CURB\"]}, " +
         "strings:[{layer, pts:[ref | {poc: ref}], closed?, offset?}], inserts:[{block, at: ref, layer, rotate?: deg | \"curb\" | \"curb+90\" | \"face-curb\", rotateAdd?, scale?, dynamic?, attributes?}], " +
         "circles:[{at, radius, layer}], arcs:[{at, radius, startDeg, endDeg, layer}], texts:[{text, at, height, layer, rotate?, dx?, dy?}], flags:[{at, note}]}. " +
         "ref = point number | {pt, off?: k (k-th LO offset point)} | {pt, dx, dy} | {x, y}. {poc: ref} makes a 3-point arc (bulge) to the next vertex; R > 1000 ft is drawn as lines and flagged. " +

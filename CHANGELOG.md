@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `blockSource` can be a folder of one-block drawings (e.g. `C:\civ3dmcp\TOPO LW`):
+  block NAME is taken from `NAME.dwg` there, inserted as a whole drawing like
+  INSERT with a file. A .dwg blockSource also falls back to that when the
+  block is the file itself. Missing blocks are all listed before anything is
+  drawn.
 - New tool `civil3d_office_survey` (office survey engine, no plugin changes):
   `points` returns parsed shots with LO offsets resolved and no-LO shots
   flagged; `build` turns a plan of point numbers (strings with `{poc}` arcs,
