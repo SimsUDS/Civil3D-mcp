@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `civil3d_entity` query with `includeGeometry`: polyline vertices carry `bulge`
+  (tan(sweep/4), + = counterclockwise) when the segment starting there is an arc.
 - `civil3d_entity` create (and `apply` job creates): inserts take `explode: true`
   (explode the block right after inserting it; pieces on layer 0 take the
   insert's layer, ByBlock color becomes ByLayer) and `clipLength` (trim the

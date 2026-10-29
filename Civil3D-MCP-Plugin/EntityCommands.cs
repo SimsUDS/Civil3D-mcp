@@ -999,7 +999,15 @@ public static partial class EntityCommands
           var vertices = new List<object>();
           for (var i = 0; i < Math.Min(polyline.NumberOfVertices, MaxVerticesPerEntity); i++)
           {
-            vertices.Add(P(polyline.GetPoint2dAt(i)));
+            var vertex = P(polyline.GetPoint2dAt(i));
+            // Bulge of the segment that starts here: tan(sweep/4), + = counterclockwise. Only when nonzero.
+            var bulge = polyline.GetBulgeAt(i);
+            if (Math.Abs(bulge) > 1e-9)
+            {
+              vertex["bulge"] = Math.Round(bulge, 6);
+            }
+
+            vertices.Add(vertex);
           }
           info["vertices"] = vertices;
         }
