@@ -119,7 +119,21 @@ export function sweep(a: XY, b: XY, c: XY): { sweep: number; radius: number } {
   return { sweep: mod(B - A) < ccw ? ccw : ccw - tp, radius: o.r };
 }
 
+/** Arcs up to this radius are always drawn as arcs. */
 export const MAX_ARC_RADIUS = 1000;
+/**
+ * Bigger arcs (up to this) are still arcs when the POC is a real middle point,
+ * more than MIN_ARC_SAGITTA off the chord: drafters draw gentle curves such as
+ * TD2563411 63042 EC -> 63059 POC -> 63068 PCC (R ~2,030 ft) as one arc.
+ */
+export const MAX_ARC_RADIUS_WITH_POC = 5000;
+export const MIN_ARC_SAGITTA = 0.5;
+
+/** Distance of p from the line through a and b. */
+export function offChord(a: XY, b: XY, p: XY): number {
+  const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
+  return len === 0 ? Math.hypot(p.x - a.x, p.y - a.y) : Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) / len;
+}
 
 const round = (v: number, places = 4) => Number(v.toFixed(places));
 
@@ -354,7 +368,8 @@ export function buildJob(plan: Plan, points: Map<number, SurveyPoint>, reference
       if (pending && verts.length > 0) {
         const a = verts[verts.length - 1];
         const arc = sweep(a, pending, v);
-        if (arc.radius > MAX_ARC_RADIUS) {
+        const flatButReal = arc.radius <= MAX_ARC_RADIUS_WITH_POC && offChord(a, v, pending) > MIN_ARC_SAGITTA;
+        if (arc.radius > MAX_ARC_RADIUS && !flatButReal) {
           flags.push(`${where}: arc through ${pendingLabel} R=${Math.round(arc.radius)} drawn as two lines`);
           verts.push({ x: round(pending.x), y: round(pending.y) });
         } else {

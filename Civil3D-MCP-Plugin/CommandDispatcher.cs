@@ -14,6 +14,7 @@ public static class CommandDispatcher
       "getDrawingSettings" => DrawingCommands.GetDrawingSettingsAsync(),
       "captureView" => ViewCaptureCommands.CaptureViewAsync(parameters),
       "geolocateDrawing" => ViewCaptureCommands.GeolocateDrawingAsync(parameters),
+      "setOnlineMap" => ViewCaptureCommands.SetOnlineMapAsync(parameters),
       "getCoordinateSystemInfo" => CoordinateSystemCommands.GetCoordinateSystemInfoAsync(),
       "transformCoordinates" => CoordinateSystemCommands.TransformCoordinatesAsync(parameters),
       "corridorQcReportWorkflow" => WorkflowCommands.CorridorQcReportWorkflowAsync(parameters),

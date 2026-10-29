@@ -19,8 +19,8 @@ namespace Civil3DMcpPlugin;
 /// so it includes the online map; the Civil 3D window must be visible and not
 /// covered. mode "render" uses Document.CapturePreviewImage (may leave out
 /// the online map).
-/// map: "aerial" | "road" | "hybrid" | "off" runs GEOMAP first (needs the
-/// drawing geolocated and the user signed in to Autodesk); mapAfter runs it
+/// map: "aerial" | "road" | "hybrid" | "off" sets GEOMAPMODE first (needs the
+/// drawing geolocated and the user signed in to Autodesk); mapAfter sets it
 /// again after the capture (e.g. "off").
 /// </summary>
 public static class ViewCaptureCommands
@@ -69,7 +69,10 @@ public static class ViewCaptureCommands
       var mapStatus = new List<string>();
       if (map is not null)
       {
-        mapStatus.Add(await SetMapAsync(editor, map));
+        using (doc.LockDocument())
+        {
+          mapStatus.Add(await SetMapAsync(editor, map));
+        }
       }
 
       if (window is not null)
@@ -169,13 +172,18 @@ public static class ViewCaptureCommands
 
       if (mapAfter is not null)
       {
-        mapStatus.Add(await SetMapAsync(editor, mapAfter));
+        using (doc.LockDocument())
+        {
+          mapStatus.Add(await SetMapAsync(editor, mapAfter));
+        }
       }
 
       return new Dictionary<string, object?>
       {
         ["outFile"] = path,
         ["map"] = mapStatus,
+        ["mapMode"] = CurrentMapMode(),
+        ["receivedKeys"] = parameters?.Select(p => p.Key).ToList(),
         ["mode"] = mode,
         ["source"] = source,
         ["pixelWidth"] = pixelWidth,
@@ -355,26 +363,70 @@ public static class ViewCaptureCommands
     return option;
   }
 
-  /// <summary>Runs GEOMAP with the option; reports instead of failing so the capture still happens.</summary>
-  private static async Task<string> SetMapAsync(Editor editor, string option)
-  {
-    var keyword = option switch
-    {
-      "aerial" => "_Aerial",
-      "road" => "_Road",
-      "hybrid" => "_Hybrid",
-      _ => "_Off",
-    };
+  private static readonly string[] MapModes = { "off", "aerial", "road", "hybrid" };
 
+  /// <summary>Current online map mode from GEOMAPMODE (0 off, 1 aerial, 2 road, 3 hybrid).</summary>
+  private static string CurrentMapMode()
+  {
     try
     {
-      await editor.CommandAsync("_.GEOMAP", keyword);
-      return $"GEOMAP {option}: done";
+      var value = Convert.ToInt32(App.GetSystemVariable("GEOMAPMODE"));
+      return value >= 0 && value < MapModes.Length ? MapModes[value] : value.ToString();
     }
     catch (System.Exception ex)
     {
-      return $"GEOMAP {option} failed: {ex.Message} (is the drawing geolocated and are you signed in to Autodesk?)";
+      return $"unknown ({ex.Message})";
     }
+  }
+
+  /// <summary>Sets the online map through GEOMAPMODE; reports instead of failing so a capture still happens.</summary>
+  private static Task<string> SetMapAsync(Editor editor, string option)
+  {
+    try
+    {
+      App.SetSystemVariable("GEOMAPMODE", (short)Array.IndexOf(MapModes, option));
+      editor.UpdateScreen();
+      var now = CurrentMapMode();
+      return Task.FromResult(now == option
+        ? $"online map {option}: done"
+        : $"online map {option}: GEOMAPMODE reads {now} (is the drawing geolocated and are you signed in to Autodesk?)");
+    }
+    catch (System.Exception ex)
+    {
+      return Task.FromResult($"online map {option} failed: {ex.Message} (is the drawing geolocated and are you signed in to Autodesk?)");
+    }
+  }
+
+  /// <summary>
+  /// setOnlineMap: turns the online map (Bing aerial etc.) on or off for the
+  /// active drawing via GEOMAPMODE. Without map, reports the current mode.
+  /// </summary>
+  public static async Task<object?> SetOnlineMapAsync(JsonObject? parameters)
+  {
+    var map = MapOption(PluginRuntime.GetOptionalString(parameters, "map"), "map");
+    var received = parameters?.Select(p => p.Key).ToList() ?? new List<string>();
+    return await CivilExecution.ExecuteInCommandContextAsync<object?>(async () =>
+    {
+      var doc = App.DocumentManager.MdiActiveDocument
+        ?? throw new JsonRpcDispatchException("CIVIL3D.NO_DRAWING", "No active drawing is open in Civil 3D.");
+      var before = CurrentMapMode();
+      string? status = null;
+      if (map is not null)
+      {
+        using (doc.LockDocument())
+        {
+          status = await SetMapAsync(doc.Editor, map);
+        }
+      }
+
+      return new Dictionary<string, object?>
+      {
+        ["before"] = before,
+        ["after"] = CurrentMapMode(),
+        ["status"] = status,
+        ["receivedKeys"] = received,
+      };
+    });
   }
 
   private static double Required(JsonObject window, string name) =>

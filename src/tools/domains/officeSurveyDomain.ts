@@ -172,7 +172,7 @@ export const OFFICE_SURVEY_DOMAIN_DEFINITION: DomainToolDefinition = {
         "build: resolve a plan that names point numbers into a civil3d_entity apply job file (outFile). Plan: {blockSource? (a .dwg, or a folder of <block name>.dwg files), reference?:{layers:[\"CURB\"]}, " +
         "strings:[{layer, pts:[ref | {poc: ref}], closed?, offset?}], inserts:[{block, at: ref, layer, rotate?: deg | \"curb\" | \"curb+90\" | \"face-curb\", rotateAdd?, scale?, dynamic?, attributes?}], " +
         "circles:[{at, radius, layer}], arcs:[{at, radius, startDeg, endDeg, layer}], texts:[{text, at, height, layer, rotate?, dx?, dy?}], flags:[{at, note}]}. " +
-        "ref = point number | {pt, off?: k (k-th LO offset point)} | {pt, dx, dy} | {x, y}. {poc: ref} makes a 3-point arc (bulge) to the next vertex; R > 1000 ft is drawn as lines and flagged. " +
+        "ref = point number | {pt, off?: k (k-th LO offset point)} | {pt, dx, dy} | {x, y}. {poc: ref} makes a 3-point arc (bulge) to the next vertex; R > 1000 ft is drawn as lines and flagged unless the POC is > 0.5 ft off the chord and R <= 5000. " +
         "Rotation 'curb' = parallel to the nearest reference line (existing drawing lines plus plan strings on reference layers), 'face-curb' = pointing straight at it. " +
         "Flags become a 5 ft circle + note on DISC-OTHER. Does not change the drawing; run civil3d_entity apply with the job file to draw it in one approval. " +
         "score: compare a job file's polylines on a layer with a civil3d_entity query outFile (a drafter's finished drawing), by length both ways.",

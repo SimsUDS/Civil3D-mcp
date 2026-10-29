@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- `civil3d_drawing` action `set_map` (plugin method `setOnlineMap`): turns the
+  online map (Bing aerial, road, hybrid) on or off through GEOMAPMODE and reports
+  the mode before and after. `capture_view` `map` / `mapAfter` now use
+  GEOMAPMODE too, and its result lists `mapMode` and the parameter keys the
+  plugin received.
+- `civil3d_office_survey build`: arcs with R 1000-5000 ft stay arcs when the POC
+  is more than 0.5 ft off the chord (drafters draw gentle curves as one arc);
+  only flatter or bigger ones become lines.
 - `civil3d_drawing` action `capture_view` (plugin method `captureView`): optionally
   zoom to a window in plan view, wait for online map tiles (GEOMAP, e.g. Bing
   aerial) to load, and save the drawing view as a PNG with its world extents
