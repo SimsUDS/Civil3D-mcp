@@ -32,6 +32,7 @@ import { SLOPE_ANALYSIS_DOMAIN_DEFINITION } from "./domains/slopeAnalysisDomain.
 import { COST_ESTIMATION_DOMAIN_DEFINITION } from "./domains/costEstimationDomain.js";
 import { GEOMETRY_DOMAIN_DEFINITION } from "./domains/geometryDomain.js";
 import { ENTITY_DOMAIN_DEFINITION } from "./domains/entityDomain.js";
+import { OFFICE_SURVEY_DOMAIN_DEFINITION } from "./domains/officeSurveyDomain.js";
 import { DRAWING_RUNTIME_DOMAIN_DEFINITION } from "./domains/drawingRuntimeDomain.js";
 import { COORDINATE_SYSTEM_DOMAIN_DEFINITION } from "./domains/coordinateSystemDomain.js";
 import { JOB_DOMAIN_DEFINITION } from "./domains/jobDomain.js";
@@ -66,6 +67,7 @@ export const MIGRATED_DOMAIN_DEFINITIONS = [
   COST_ESTIMATION_DOMAIN_DEFINITION,
   GEOMETRY_DOMAIN_DEFINITION,
   ENTITY_DOMAIN_DEFINITION,
+  OFFICE_SURVEY_DOMAIN_DEFINITION,
   DRAWING_RUNTIME_DOMAIN_DEFINITION,
   COORDINATE_SYSTEM_DOMAIN_DEFINITION,
   JOB_DOMAIN_DEFINITION,

@@ -67,6 +67,32 @@ const HatchSchema = z.object({
   space: SpaceSchema.optional(),
 });
 
+const CreateSchema = z.object({
+  type: z.enum(["insert", "block", "polyline", "circle", "arc", "line", "text"]).describe("insert (block reference), polyline, circle, arc, line or text."),
+  id: z.string().optional().describe("Optional caller id echoed back with the new handle."),
+  layer: z.string().optional().describe("Layer; created if missing."),
+  colorIndex: z.number().int().min(0).max(256).optional().describe("ACI color: 0 = ByBlock, 256 = ByLayer."),
+  linetype: z.string().optional().describe("Linetype name; must already be loaded in the drawing."),
+  space: SpaceSchema.optional(),
+  blockName: z.string().optional().describe("insert: block definition name (imported from blockSource when missing)."),
+  position: Point2DSchema.optional().describe("insert: insertion point; text: text position."),
+  rotationDeg: z.number().optional().describe("insert / text: rotation in degrees CCW."),
+  scale: z.number().positive().optional().describe("insert: uniform scale (default 1)."),
+  dynamicProperties: z.record(z.string(), z.union([z.string(), z.number()])).optional().describe("insert: dynamic block properties by name (visibility state, distance, angle in radians)."),
+  attributes: z.record(z.string(), z.string()).optional().describe("insert: attribute values by tag."),
+  points: z.array(z.object({ x: z.number(), y: z.number(), bulge: z.number().optional() })).min(2).optional()
+    .describe("polyline: vertices; bulge = tan(sweep/4) of the segment that starts at the vertex, positive = CCW."),
+  closed: z.boolean().optional().describe("polyline: closed."),
+  center: Point2DSchema.optional().describe("circle / arc: center."),
+  radius: z.number().positive().optional().describe("circle / arc: radius."),
+  startAngleDeg: z.number().optional().describe("arc: start angle, degrees CCW from +X."),
+  endAngleDeg: z.number().optional().describe("arc: end angle, degrees CCW from +X."),
+  start: Point2DSchema.optional().describe("line: start."),
+  end: Point2DSchema.optional().describe("line: end."),
+  text: z.string().optional().describe("text: the string."),
+  height: z.number().positive().optional().describe("text: height (default 1)."),
+});
+
 const QueryArgs = z.object({
   action: z.literal("query"),
   space: SpaceSchema.optional(),
@@ -77,6 +103,12 @@ const QueryArgs = z.object({
   limit: z.number().int().min(1).max(5000).optional(),
   includeGeometry: z.boolean().optional(),
   outFile: z.string().min(1).optional(),
+});
+const CreateArgs = z.object({
+  action: z.literal("create"),
+  creates: z.array(CreateSchema).min(1),
+  blockSource: z.string().min(1).optional(),
+  space: SpaceSchema.optional(),
 });
 const CopyArgs = z.object({ action: z.literal("copy"), operations: z.array(CopyOperationSchema).min(1) });
 const EditArgs = z.object({ action: z.literal("edit"), edits: z.array(EditSchema).min(1) });
@@ -92,9 +124,10 @@ const ApplyArgs = z.object({
 });
 
 const JobFileDescription =
-  "apply: absolute path to a .json job file on this machine: {version:1, copies:[{id, handles|window, dx, dy, mirrorX?, mode?, space?}], " +
+  "apply: absolute path to a .json job file on this machine: {version:1, blockSource?: \"<.dwg with block definitions>\", " +
+  "creates:[{type: insert|polyline|circle|arc|line|text, layer, ...create fields}], copies:[{id, handles|window, dx, dy, mirrorX?, mode?, space?}], " +
   "edits:[{handle|ref:\"<copyId>:<sourceHandle>\", ...edit fields}], hatches:[{boundaries:[handle | {ref}], like?: handle | {ref}, pattern?, scale?, angleDeg?, layer?}], " +
-  "erase:[handle | {ref}]}. Stages run copies, edits, hatches, erase. Approval is bound to the file's SHA-256, " +
+  "erase:[handle | {ref}]}. Stages run creates, copies, edits, hatches, erase. Approval is bound to the file's SHA-256, " +
   "so edit the file and the token is void. The full old-to-new handle map is written beside it as <name>.result.json.";
 
 const send = (method: string, payload: Record<string, unknown>) =>
@@ -123,6 +156,19 @@ export const ENTITY_DOMAIN_DEFINITION: DomainToolDefinition = {
         writeFileSync(outFile, JSON.stringify(result, null, 2), "utf8");
         const r = (result ?? {}) as Record<string, unknown>;
         return { outFile, matched: r.matched, returned: r.returned, truncated: r.truncated, countsByType: r.countsByType };
+      },
+    },
+    create: {
+      action: "create",
+      inputSchema: CreateArgs,
+      responseSchema: GenericResponseSchema,
+      capabilities: ["create"],
+      requiresActiveDrawing: true,
+      safeForRetry: false,
+      pluginMethods: ["createEntities"],
+      execute: async (args) => {
+        const { action: _action, ...rest } = args as z.infer<typeof CreateArgs>;
+        return await send("createEntities", rest);
       },
     },
     copy: {
@@ -172,7 +218,7 @@ export const ENTITY_DOMAIN_DEFINITION: DomainToolDefinition = {
       capabilities: ["create", "edit", "delete"],
       requiresActiveDrawing: true,
       safeForRetry: false,
-      pluginMethods: ["copyEntities", "editEntities", "createHatches", "eraseEntities"],
+      pluginMethods: ["createEntities", "copyEntities", "editEntities", "createHatches", "eraseEntities"],
       execute: async (args) => {
         const { jobFile, job, includeHandleMap } = args as z.infer<typeof ApplyArgs>;
         const file = jobFile ? readJobFile(jobFile) : undefined;
@@ -180,12 +226,12 @@ export const ENTITY_DOMAIN_DEFINITION: DomainToolDefinition = {
         const result = await runEntityJob(parsed, send);
         const resultFile = file ? writeJobResult(file.path, result, file.sha256) : undefined;
         // Keep the reply small: per-copy counts and handle maps live in the result file.
-        const { handles, copies, ...summary } = result;
+        const { handles, copies, createdHandles, ...summary } = result;
         const response = {
           ...summary,
           copyOperations: Object.keys(copies).length,
           ...(file ? { jobFile: file.path, jobSha256: file.sha256, resultFile } : {}),
-          ...(includeHandleMap || !file ? { copies, handles } : {}),
+          ...(includeHandleMap || !file ? { copies, handles, createdHandles } : {}),
         };
         if (result.status === "failed") {
           // Earlier stages are committed; report what exists so it can be fixed or erased.
@@ -202,16 +248,17 @@ export const ENTITY_DOMAIN_DEFINITION: DomainToolDefinition = {
       toolName: "civil3d_entity",
       displayName: "Civil 3D Entities",
       description:
-        "Reads, copies, moves, edits and erases ordinary AutoCAD entities (blocks, lines, polylines, text, MText, multileaders, attributes) in model space or a layout. " +
+        "Reads, creates, copies, moves, edits and erases ordinary AutoCAD entities (blocks, lines, polylines, text, MText, multileaders, attributes) in model space or a layout. " +
         "query: list entities in a window with handles, block names, attribute values, text and geometry. " +
+        "create: batch-draw new entities in one transaction: block inserts (rotation, scale, dynamic properties, attributes; missing definitions imported from blockSource .dwg), polylines with per-vertex bulge, circles, arcs, lines and text; missing layers are created. " +
         "copy: batch copy or move entities by handles and/or window with a dx/dy offset and optional mirror; returns old-to-new handle maps. " +
         "edit: batch change text, attribute values, vertices/endpoints, circle/arc center, radius and arc angles, dimension points, color, linetype or layer by handle. " +
         "erase: delete entities by handle. " +
         "hatch: create hatches like HATCH > Select objects (closed polylines/circles, associative) or from vertex loops, matching an existing hatch's pattern, scale and angle via 'like'. " +
-        "apply: run a whole job (copies, then edits, hatches and erases that may reference the new copies as \"<copyId>:<sourceHandle>\") from a JSON file in one call; " +
+        "apply: run a whole job (creates, copies, then edits, hatches and erases that may reference the new copies as \"<copyId>:<sourceHandle>\") from a JSON file in one call; " +
         "approval binds to the file hash, so the request stays tiny. Batch copy and edit work so one approval covers a whole detail.",
       inputShape: {
-        action: z.enum(["query", "copy", "edit", "erase", "hatch", "apply"]),
+        action: z.enum(["query", "create", "copy", "edit", "erase", "hatch", "apply"]),
         space: SpaceSchema.optional(),
         window: WindowSchema.optional(),
         crossing: z.boolean().optional(),
@@ -220,6 +267,8 @@ export const ENTITY_DOMAIN_DEFINITION: DomainToolDefinition = {
         limit: z.number().int().min(1).max(5000).optional(),
         includeGeometry: z.boolean().optional(),
         outFile: z.string().min(1).optional().describe("query: absolute path of a .json file on this machine to write the full result to; the reply is then only counts and the path."),
+        creates: z.array(CreateSchema).optional().describe("create: entities to draw."),
+        blockSource: z.string().min(1).optional().describe("create: absolute path of a .dwg to import missing block definitions from (must be inside the configured import roots)."),
         operations: z.array(CopyOperationSchema).optional(),
         edits: z.array(EditSchema).optional(),
         handles: z.array(HandleSchema).optional(),
@@ -228,7 +277,7 @@ export const ENTITY_DOMAIN_DEFINITION: DomainToolDefinition = {
         job: z.record(z.unknown()).optional().describe("apply: inline job object (same format as jobFile) for small jobs."),
         includeHandleMap: z.boolean().optional().describe("apply: also return the full old-to-new handle map inline."),
       },
-      supportedActions: ["query", "copy", "edit", "erase", "hatch", "apply"],
+      supportedActions: ["query", "create", "copy", "edit", "erase", "hatch", "apply"],
       resolveAction: (rawArgs) => ({ action: String(rawArgs.action ?? ""), args: rawArgs }),
     },
   ],

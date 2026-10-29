@@ -3,22 +3,27 @@ import { readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 /**
- * Entity jobs: one JSON document that describes a whole batch of copies, edits
- * and erases. Edits and erases may reference entities that the same job copies
+ * Entity jobs: one JSON document that describes a whole batch of new entities,
+ * copies, edits, hatches and erases. Edits and erases may reference entities that the same job copies
  * ("ref": "<copyId>:<sourceHandle>"), so a drawing detail can be built in one
  * tool call without a round trip to learn the new handles.
  *
  * Job format (version 1):
  * {
  *   "version": 1,
+ *   "blockSource": "C:\\jobs\\symbols.dwg",
+ *   "creates": [{ "type": "insert", "blockName": "tree1", "position": {"x": 1, "y": 2}, "layer": "LANDSCAPE" },
+ *               { "type": "polyline", "points": [{"x": 0, "y": 0, "bulge": 0.4}, {"x": 5, "y": 5}], "layer": "CURB" }],
  *   "copies": [{ "id": "p1", "handles": ["2A4BC2"], "dx": 10, "dy": 0, "mirrorX": 5, "mode": "copy" }],
  *   "edits":  [{ "ref": "p1:2A4BC2", "text": "NEW" }, { "handle": "1F00", "colorIndex": 1 }],
  *   "hatches": [{ "boundaries": [{ "ref": "p1:39258B" }, "1F02"], "like": "39258A" }],
  *   "erase":  ["1F01", { "ref": "p1:2A4BC3" }]
  * }
  *
- * Stages run in order: copies, edits, hatches (so hatch boundaries can be
- * copied and edited first), erase.
+ * Stages run in order: creates, copies, edits, hatches (so hatch boundaries can
+ * be copied and edited first), erase. Creates are new entities (blocks,
+ * polylines with bulges, circles, arcs, lines, text); blockSource is a .dwg
+ * that missing block definitions are imported from.
  */
 
 export const MAX_JOB_FILE_BYTES = 8 * 1024 * 1024;
@@ -32,6 +37,8 @@ export interface EntityJobCopy extends JsonObject {
 
 export interface EntityJob {
   version?: number;
+  blockSource?: string;
+  creates?: JsonObject[];
   copies?: EntityJobCopy[];
   edits?: JsonObject[];
   hatches?: JsonObject[];
@@ -101,11 +108,30 @@ export function validateJob(job: unknown): EntityJob {
   if (value.version !== undefined && value.version !== 1) {
     throw jobError(`Unsupported job version ${String(value.version)}; expected 1.`);
   }
-  for (const key of ["copies", "edits", "hatches", "erase"] as const) {
+  if (value.blockSource !== undefined && (typeof value.blockSource !== "string" || value.blockSource.length === 0)) {
+    throw jobError("Job 'blockSource' must be a non-empty path string.");
+  }
+  for (const key of ["creates", "copies", "edits", "hatches", "erase"] as const) {
     if (value[key] !== undefined && !Array.isArray(value[key])) {
       throw jobError(`Job '${key}' must be an array.`);
     }
   }
+
+  const CREATE_TYPES = new Set(["insert", "block", "polyline", "circle", "arc", "line", "text"]);
+  (value.creates ?? []).forEach((create, index) => {
+    const where = `creates[${index}]`;
+    if (!create || typeof create !== "object" || Array.isArray(create)) throw jobError(`${where} must be an object.`);
+    const type = typeof create.type === "string" ? create.type.toLowerCase() : "";
+    if (!CREATE_TYPES.has(type)) {
+      throw jobError(`${where}.type must be one of insert, polyline, circle, arc, line, text.`);
+    }
+    if ((type === "insert" || type === "block") && (typeof create.blockName !== "string" || create.blockName.length === 0)) {
+      throw jobError(`${where} (insert) needs blockName.`);
+    }
+    if (type === "polyline" && (!Array.isArray(create.points) || create.points.length < 2)) {
+      throw jobError(`${where} (polyline) needs at least 2 points.`);
+    }
+  });
 
   const ids = new Set<string>();
   (value.copies ?? []).forEach((copy, index) => {
@@ -206,7 +232,11 @@ function upperKeys(map: unknown): Record<string, string> {
 
 export interface EntityJobResult extends JsonObject {
   status: "completed" | "failed";
-  stage: "copy" | "edit" | "hatch" | "erase" | "done";
+  stage: "create" | "copy" | "edit" | "hatch" | "erase" | "done";
+  created: number;
+  createdHandles: string[];
+  importedBlocks: string[];
+  createWarnings: string[];
   copies: Record<string, number>;
   copiedEntities: number;
   edited: number;
@@ -218,7 +248,7 @@ export interface EntityJobResult extends JsonObject {
 }
 
 /**
- * Runs a job against the plugin: one copyEntities call, then one editEntities
+ * Runs a job against the plugin: one createEntities call, one copyEntities call, then one editEntities
  * call with refs resolved to new handles, then one createHatches call, then
  * one eraseEntities call. Each
  * stage is its own drawing transaction; if a later stage fails, the result
@@ -227,7 +257,11 @@ export interface EntityJobResult extends JsonObject {
 export async function runEntityJob(job: EntityJob, send: SendFn): Promise<EntityJobResult> {
   const result: EntityJobResult = {
     status: "completed",
-    stage: "copy",
+    stage: "create",
+    created: 0,
+    createdHandles: [],
+    importedBlocks: [],
+    createWarnings: [],
     copies: {},
     copiedEntities: 0,
     edited: 0,
@@ -239,6 +273,19 @@ export async function runEntityJob(job: EntityJob, send: SendFn): Promise<Entity
   result.handles = maps;
 
   try {
+    const creates = job.creates ?? [];
+    if (creates.length > 0) {
+      const response = await send("createEntities", {
+        creates,
+        ...(job.blockSource ? { blockSource: job.blockSource } : {}),
+      }) as { created?: Array<{ handle?: string }>; count?: number; importedBlocks?: string[]; warnings?: string[] };
+      result.createdHandles = (response?.created ?? []).map((entry) => String(entry.handle));
+      result.created = response?.count ?? result.createdHandles.length;
+      result.importedBlocks = response?.importedBlocks ?? [];
+      result.createWarnings = response?.warnings ?? [];
+    }
+
+    result.stage = "copy";
     const copies = job.copies ?? [];
     if (copies.length > 0) {
       const operations = copies.map(({ id: _id, ...operation }) => operation);

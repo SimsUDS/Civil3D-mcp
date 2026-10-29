@@ -11,7 +11,7 @@ namespace Civil3DMcpPlugin;
 /// Built for template-driven drafting where existing blocks, lines, text and
 /// leaders are copied and edited rather than drawn from scratch.
 /// </summary>
-public static class EntityCommands
+public static partial class EntityCommands
 {
   private const int DefaultQueryLimit = 500;
   private const int MaxQueryLimit = 5000;

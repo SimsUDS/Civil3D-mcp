@@ -29,6 +29,7 @@ export type ToolDomain =
   | "slope_analysis"
   | "cost_estimation"
   | "survey"
+  | "office_survey"
   | "plan_production"
   | "docs"
   | "help"

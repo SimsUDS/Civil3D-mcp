@@ -42,6 +42,15 @@ function fakePlugin() {
     }
     if (method === "editEntities") return { edits: (payload.edits as unknown[]).map((_, index) => ({ index })) };
     if (method === "eraseEntities") return { count: (payload.handles as unknown[]).length };
+    if (method === "createEntities") {
+      const creates = payload.creates as unknown[];
+      return {
+        created: creates.map((_, index) => ({ index, handle: (next++).toString(16).toUpperCase() })),
+        count: creates.length,
+        importedBlocks: payload.blockSource ? ["tree1"] : [],
+        warnings: [],
+      };
+    }
     if (method === "createHatches") {
       const hatches = payload.hatches as unknown[];
       return { hatches: hatches.map((_, index) => ({ index, handle: (next++).toString(16).toUpperCase() })), count: hatches.length };
@@ -52,6 +61,36 @@ function fakePlugin() {
 }
 
 describe("entity jobs", () => {
+  it("runs creates first, in one createEntities call, passing blockSource", async () => {
+    const job = validateJob({
+      version: 1,
+      blockSource: "C:\\jobs\\symbols.dwg",
+      creates: [
+        { type: "insert", blockName: "tree1", position: { x: 1, y: 2 }, layer: "LANDSCAPE" },
+        { type: "polyline", points: [{ x: 0, y: 0, bulge: 0.4 }, { x: 5, y: 5 }], layer: "CURB" },
+        { type: "circle", center: { x: 3, y: 3 }, radius: 3, layer: "TS" },
+      ],
+      copies: [{ id: "a", handles: ["2A"], dx: 1, dy: 1 }],
+    });
+    const { calls, send } = fakePlugin();
+    const result = await runEntityJob(job, send);
+
+    expect(result.status).toBe("completed");
+    expect(calls.map((call) => call.method)).toEqual(["createEntities", "copyEntities"]);
+    expect(calls[0].payload.blockSource).toBe("C:\\jobs\\symbols.dwg");
+    expect((calls[0].payload.creates as unknown[]).length).toBe(3);
+    expect(result.created).toBe(3);
+    expect(result.createdHandles).toHaveLength(3);
+    expect(result.importedBlocks).toEqual(["tree1"]);
+  });
+
+  it("rejects creates without a known type, a block name or enough points", () => {
+    expect(() => validateJob({ creates: [{ type: "spline" }] })).toThrow(/type must be one of/);
+    expect(() => validateJob({ creates: [{ type: "insert", position: { x: 0, y: 0 } }] })).toThrow(/needs blockName/);
+    expect(() => validateJob({ creates: [{ type: "polyline", points: [{ x: 0, y: 0 }] }] })).toThrow(/at least 2 points/);
+    expect(() => validateJob({ blockSource: "", creates: [] })).toThrow(/blockSource/);
+  });
+
   it("copies, then resolves edit and erase refs to the new handles", async () => {
     const job = validateJob({
       version: 1,

@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- New tool `civil3d_office_survey` (office survey engine, no plugin changes):
+  `points` returns parsed shots with LO offsets resolved and no-LO shots
+  flagged; `build` turns a plan of point numbers (strings with `{poc}` arcs,
+  block inserts rotated `curb` / `face-curb`, circles, arcs, text, DISC-OTHER
+  flags) into a `civil3d_entity apply` job file without touching the drawing;
+  `score` compares a job's polylines with a drafter's query export.
+- `civil3d_entity` action `create` (plugin method `createEntities`): draws new
+  entities in one transaction: block inserts (rotation, scale, dynamic
+  properties, attributes), polylines with per-vertex bulge, circles, arcs,
+  lines and text. Missing layers are created; missing block definitions are
+  imported from `blockSource` (a .dwg inside the import roots, existing
+  definitions are never overwritten).
+- `apply` jobs take a `creates` stage (runs first) and `blockSource`, so a whole
+  drafting job (hundreds of blocks and polylines) is one approval bound to the
+  job file's SHA-256.
 - Live redraw: `copyEntities`, `editEntities`, `createHatches` and
   `eraseEntities` repaint the drawing between pieces (throttled to about every
   100 ms) and show `MCP <action>: n/total` on the command line, instead of
