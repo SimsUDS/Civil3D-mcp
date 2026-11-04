@@ -94,7 +94,7 @@ Crossarm with dots or pins = XARM + VERT P&I (a 3/C arm is usually `pins: [0, 1,
 3. Dims on the callout side, DIMENSION ByLayer, 12 apart, attached at equipment ends, tight fit, no dim crossing text.
 4. Dim labels clear of each other and of callouts.
 5. DG callouts: leaders 2.8 from the measured text, 30 apart, correct guy, outside boxes; EX on existing.
-6. Anchors: scale distances, lead dims, base line, labels only where the PDF labels, leaders not crossing and at least 15.1; SOIL TYPE when given; every guy ends at the anchor the PDF draws.
+6. Anchors: scale distances, lead dims, base line, labels only where the PDF labels, leaders not crossing and at least 15.1; SOIL TYPE when given (at least 6 clear of the pole label); every guy ends at the anchor the PDF draws.
 7. Pole label per the guy rule; pole number and L/xx match; correct slot; G = Cy.
 8. Pole line to the top equipment; down guys on GUY; span guys are SG halves.
 9. Box sides, centered boxes, pins and slants as drawn, cutouts never mirrored, base circles present, PH groups, guard arm dots.
