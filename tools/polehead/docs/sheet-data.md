@@ -19,10 +19,12 @@ Read on every job when building the note lines (step 3). `station_builder.py` ap
 - Drop exact duplicates. Contradicting lines (`-PTC REQUIRED` and `-NO PTC REQUIRED`) both kept and noted.
 - Every note line (not TLM notes) starts with `-`.
 - Fill blanks in order from the fill-in cell: `-POLE SET IN ______, INSP. ______` + "2018,  INSP. N/A" = `-POLE SET IN 2018, INSP. N/A`; `-IPI REQUIRED; NOTIFICATION #________ REQUESTED ON __/__/__` + "415649921, 10/01/2026"; `-TRUCK ACCESS VIA STREET NAME` + "WINDSOR DR" = `-TRUCK ACCESS VIA WINDSOR DR`; `-SAME HOLE SET DUE TO ___________` + "RISER"; `-HARDSET ___` + "NORTHWEST".
-- POLE SET IN with no data: `-POLE SET IN N/A, INSP. N/A`.
+- POLE SET IN with no data: `-POLE SET IN N/A, INSP. N/A`. Years written with a slash are set year / inspection year: `2015/2019` = `-POLE SET IN 2015, INSP. 2019`, `2019/N/A` = `-POLE SET IN 2019, INSP. N/A` (TD2555545).
+- `-LOCATED IN DIRECTION/O FULL ADDRESS` + "4 wake forest ave" = `-LOCATED IN DIRECTION/O 4 WAKE FOREST AVE` (FULL ADDRESS is the blank; DIRECTION with no fill-in stays as written).
+- A fill-in typed one row low (N and O of the next row empty, value in P/Q) belongs to the STREET NAME / FULL ADDRESS note above it.
 - A fill-in repeating the template word is written once (`-TRUCK ACCESS VIA CALLE DAMASCO`). Split a glued house number (`OF1211` becomes `OF 1211`).
 - Any other blank with no fill-in: draft as written, do not report.
-- GPS: LAT/LONG as in the tab (the block supplies N/W).
+- GPS: LAT/LONG as in the tab (the block supplies N/W), minus a leading `-` sign.
 - ELEV FOOTAGE: number only (strip `'` or FT). No elevation: blank, not reported.
 
 ## Stack layout (left edges at Cx - 919.971)

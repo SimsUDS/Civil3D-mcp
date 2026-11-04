@@ -47,15 +47,30 @@ def sheet_from_rows(pole, rows, report):
         if v:
             c = clean(v)
             crew.append(c if c.startswith('-') else '-' + c)
-    for i in range(23, 43):                      # N27..N46
+    def cells(i):
         v, o, p, q = (tuple(rows[i]) + (None,) * 4)[:4]
         o, p, q = [x if not isinstance(x, str) or x.strip() else None for x in (o, p, q)]
+        return v, o, p, q
+
+    used = set()
+    for i in range(23, 43):                      # N27..N46
+        if i in used:
+            continue
+        v, o, p, q = cells(i)
         if not v and o:                          # planners type whole notes in column O with N empty: still a note
             v, o, p, q = o, None, None, None
         if not v:
             continue
         t = clean(v)
         fill = ' '.join(str(x).strip() for x in (o, p, q) if x)
+        if not fill and i + 1 < 43 and ('STREET NAME' in t or 'FULL ADDRESS' in t):
+            # fill-in typed one row low, in P/Q of a row with N and O empty (TD2555545 1138916E: TRUCK ACCESS VIA
+            # STREET NAME on row 33, "telegraph rd" in Q34)
+            nv, no, np_, nq = cells(i + 1)
+            if not nv and not no and (np_ or nq):
+                fill = ' '.join(str(x).strip() for x in (np_, nq) if x)
+                used.add(i + 1)
+                report.append('%s: fill-in for "%s" taken from the row below' % (pole, t))
         if 'POLE SET IN' in t:
             if fill:
                 f = clean(fill)
@@ -63,6 +78,7 @@ def sheet_from_rows(pole, rows, report):
                     a, _, b = f.partition('INSP.')
                 else:                            # "2014 , N/A" = set year, inspection year
                     f = re.sub(r"^(\d{4})'\s+", r'\1, ', f)   # "2019' N/A": apostrophe typed for the comma
+                    f = re.sub(r'^(\d{4})\s*/\s*', r'\1, ', f)   # "2015/2019", "2019/N/A" (TD2555545)
                     a, _, b = f.partition(',')
                 na = lambda x: 'N/A' if x.strip(' ,') in ('', 'NA', 'N/A') else x.strip(' ,')
                 t = '-POLE SET IN %s, INSP. %s' % (na(a), na(b))
@@ -73,6 +89,8 @@ def sheet_from_rows(pole, rows, report):
                 t = clean(fill)
             elif fill:
                 t = t.replace('STREET NAME', clean(fill))
+        elif 'FULL ADDRESS' in t and fill:      # -LOCATED IN DIRECTION/O FULL ADDRESS + "4 wake forest ave"
+            t = t.replace('FULL ADDRESS', clean(fill))
         elif '___' in t and fill:
             blanks = re.findall(r'_+(?:/_+)*', t)
             parts = [x.strip() for x in clean(fill).split(',')]
@@ -91,6 +109,7 @@ def sheet_from_rows(pole, rows, report):
             continue                             # duplicates are dropped silently
         notes.append(t)
     gps = [str(rows[5][1] or ''), str(rows[7][1] or '')]
+    gps = [g.strip().lstrip('-').strip() for g in gps]   # the GPS block supplies N / W: no sign (TD2555545 LONG "-119...")
     elev = str(rows[9][1] or '').upper().replace("'", '').replace('FT', '').strip()
     if not gps[0] or not gps[1]:
         report.append('%s: GPS missing in Station Builder' % pole)

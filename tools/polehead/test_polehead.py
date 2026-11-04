@@ -102,6 +102,23 @@ class StationBuilderTests(unittest.TestCase):
                                         '-TRUCK ACCESS VIA WINDSOR DR', '-COMM ANCHOR BEING INSTALLED AT 4\'5"'])
 
 
+    def test_slash_years_full_address_low_fill_and_sign(self):
+        # TD2555545: "2015/2019" years, FULL ADDRESS fill-in, a fill-in one row low, a minus on LONG
+        rows = [[None, None, None, None] for _ in range(43)]
+        rows[5][1], rows[7][1] = "34°16'39.78\"", "-119°13'03.03\""
+        rows[23] = ['-POLE SET IN ______, INSP. ______', None, None, '2015/2019']
+        rows[24] = ['-LOCATED IN DIRECTION/O FULL ADDRESS', None, None, '4 wake forest ave']
+        rows[25] = ['-TRUCK ACCESS VIA STREET NAME', None, None, None]
+        rows[26] = [None, None, None, 'telegraph rd']
+        out = sbm.sheet_from_rows('P', [tuple(r) for r in rows], [])
+        self.assertEqual(out['notes'], ['-POLE SET IN 2015, INSP. 2019', '-LOCATED IN DIRECTION/O 4 WAKE FOREST AVE',
+                                        '-TRUCK ACCESS VIA TELEGRAPH RD'])
+        self.assertEqual(out['gps'][1], "119°13'03.03\"")
+        rows[23][3] = '2019/N/A'
+        out = sbm.sheet_from_rows('P', [tuple(r) for r in rows], [])
+        self.assertEqual(out['notes'][0], '-POLE SET IN 2019, INSP. N/A')
+
+
 class ShortArmTest(unittest.TestCase):
     def test_arm1_left_with_dot_at_the_end(self):
         J = ph.Job()

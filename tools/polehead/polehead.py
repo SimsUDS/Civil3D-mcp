@@ -667,9 +667,13 @@ def place_item(J, P, r, it, sc):
         # lone side view CUTOUT (S) beside the pole, no SA (an FH ARM side view, TD2561109 4495672E L/E 35'6").
         # Never mirrored. Right: center P + 3.2159 (as in the Builder). Left: 1.1 clear of the leftmost box.
         if it['cutout'] == 'R':
-            cx = P + 3.2159
+            # beside a right box (dead end boxes P - 5 to P + 5, a right or both-sides arm box, a right SIDE XARM)
+            # the S sits past the box, as the PDF draws it (TD2555545 716875H / 1138912E: FH on a dead end)
+            boxed_r = (t == 'pri' and k in ('R', 'B')) or (t in ('de1', 'de2') and not it.get('onebox')) \
+                or it.get('box') in ('R', 'B')
+            cx = (P + 5 if boxed_r else P) + 3.2159
             if sc > 0:
-                a = max(a, 5.43)
+                a = max(a, cx - P + 2.2141)
         else:
             boxed = (t == 'pri' and k in ('L', 'B')) or t in ('de1', 'de2') or it.get('box') in ('L', 'B')
             cx = (P - 5 if boxed else P) - 3.3132
@@ -1220,11 +1224,28 @@ def build_rspan(J, Cx, top, rs):
     return bot
 
 
+CALC_RIGHT_X = 208.34
+CALC_RIGHT_GAP = 8.0
+
+
+def calc_right_x(rows):
+    """Right column (= ...) x from the box left: 208.34, or further right when a left line would run into it
+    (docs/calcs-unguyed.md; TD2555545 1138916E '60' CLASS H3 DF-TB POLE IN 8LB WIND ZONE GRADE A CAN HOLD')."""
+    rx, prev = CALC_RIGHT_X, ''
+    for left, right in rows:
+        ind = CALC_INDENT if re.match(r'^[A-Z]\. ', prev) else 0
+        prev = left
+        if right:
+            rx = max(rx, 2.876 + ind + note_w(left) + CALC_RIGHT_GAP)
+    return rx
+
+
 def build_calc(J, Cx, top, calc):
     """DE CALC box from the NOTE stash pieces (DECAL, SIMPLEX 4.8), centered on Cx. Returns the bottom."""
     rows = calc['rows']
+    rx = calc_right_x(rows)
     w = max([2.876 + note_w(calc['hdr'].replace('%%U', '')) + 3] +
-            [208.34 + note_w(r[1]) + 5.63 if r[1] else 2.876 + note_w(r[0]) + 3 for r in rows])   # re-fit after measuring
+            [rx + note_w(r[1]) + 5.63 if r[1] else 2.876 + note_w(r[0]) + 3 for r in rows])   # re-fit after measuring
     L = Cx - w / 2
     J.cp([NOTE['hdr'][0]], L + 2.876 - STASH_TEXT_X, (top - 8.02) - NOTE['hdr'][1], edit=[dict(text=calc['hdr'])])
     yb = top - 17.65
@@ -1235,7 +1256,7 @@ def build_calc(J, Cx, top, calc):
         prev = left
         J.cp([NOTE['line'][0]], L + 2.876 + ind - STASH_TEXT_X, yb - NOTE['line'][1], edit=[dict(text=left)])
         if right:
-            J.cp([NOTE['line'][0]], L + 208.34 - STASH_TEXT_X, yb - NOTE['line'][1], edit=[dict(text=right)])
+            J.cp([NOTE['line'][0]], L + rx - STASH_TEXT_X, yb - NOTE['line'][1], edit=[dict(text=right)])
         yb -= 8.027
     bot = yb + 8.027 - 4.22
     J.cp([NOTE['box']], 0, 0, edit=[dict(vertices=[pt(L, top), pt(L + w, top), pt(L + w, bot), pt(L, bot)])])
