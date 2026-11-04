@@ -122,7 +122,8 @@ for `qc.py` (see below).
   - `omni: [slots]` on `arm`: HRZ OMNI SWITCH, INV OMNI CLOSED (2E344E) under each listed slot, insertion on the slot,
     on the arm line (TD2561109 4981512E). Template leans left; `omni_lean: "R"` mirrors each one about its insertion.
   - `cutout: "R"` / `"L"` on any item: a lone side view CUTOUT (2E3872, never mirrored) on that row with no SA, e.g.
-    `IN: FH ARM` drawn as one S beside a side arm box (TD2561109 4495672E). Right: center P + 3.2159; left: 1.1 clear
+    `IN: FH ARM` drawn as one S beside a side arm box (TD2561109 4495672E). Right: center P + 3.2159, or P + 8.2159 past a right box
+    (dead end boxes, a right or both-sides arm box; TD2555545 716875H); left: 1.1 clear
     of the leftmost box on that side (P - 3.3132, or P - 8.3132 beside a left box).
   - A guy without `c` is drawn with no DG callout or leader (the PDF draws the guy but labels no DG).
   - `o`: tie-break order for two items at the same height.

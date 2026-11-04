@@ -5,7 +5,7 @@ Read when a PDF page shows a calc table in the CALCS area (render that crop at -
 ## Placement (generator `calcs`)
 
 - Box centered on Cx, top at Cy - 100. Left text at box left + 2.876, right column (`= ...`) at box left + 208.34; header baseline top - 8.02; lines at top - 17.65, - 25.67, - 33.70, - 41.73; bottom = top - 45.95. Re-center on Cx after measuring (qc.py fix job). A second calc goes 10 below the first.
-- A left line that overlaps its `= ...`: move the whole right column right, widen the box, keep it centered.
+- A left line that overlaps its `= ...`: move the whole right column right, widen the box, keep it centered. The generator does it: right column at the larger of 208.34 and the longest left line that has a right value + 8 (TD2555545 1138916E CLASS line).
 
 ## UNGUYED DE CALC (one line each, left / right)
 
