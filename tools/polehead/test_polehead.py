@@ -332,3 +332,73 @@ class TestRiserGuards(unittest.TestCase):
         self.assertAlmostEqual(u['startAngleDeg'], 224.9, places=3)
         self.assertAlmostEqual(u['endAngleDeg'], 45.1, places=3)
         self.assertEqual(J.report, [])
+
+
+def _pole(items, **prof):
+    """One-profile, one-pole spec on frame 0 (left slot: P = -843.912, G = -3575.8251)."""
+    p = dict(L='L/N', side='R', items=items)
+    p.update(prof)
+    return dict(job='T', poles=[dict(frame=0, pole='1E', profiles=[p], crew=[], notes=['-X'], gps=['1', '2'], elev='1')])
+
+
+P0, G0 = -843.912, -3575.8251
+
+
+class FasterDraftingTests(unittest.TestCase):
+    """TD2561109 hand pieces now placed by the generator (positions match what Kevin approved there)."""
+
+    def ops(self, spec):
+        J = ph.build_job(spec)
+        return J, [op for _, op in J.ops]
+
+    def test_soil_box_under_lead_dims_and_clear_of_pole_label(self):
+        spec = _pole([dict(t='xl', h="20'", c=['COMM'])], side='L', gside=1, soil='b',
+                     anchors=[dict(L="5'", c='EX: 3/4" 2EYE')], guys=[dict(h="20'", an=0, c='IN: 9/32" DG @ 20\'')])
+        J, ops = self.ops(spec)
+        op = next(o for o in ops if '394947' in o['handles'])
+        self.assertEqual(op['handles'], ['394947', '394948'])
+        left, top = ph.SOIL['left'] + op['dx'], ph.SOIL['top'] + op['dy']
+        self.assertAlmostEqual(top, G0 - 20, places=3)                    # 8 below the one lead dim line
+        self.assertGreaterEqual(left - (P0 - 9.86), 6 - 1e-6)             # 6 clear of the pole label
+        self.assertIn(dict(text='SOIL TYPE = B'), [e for _, h, e in J.edits if h == '394948'])
+
+    def test_no_soil_without_the_key(self):
+        spec = _pole([dict(t='xl', h="20'", c=['COMM'])], side='L', gside=1,
+                     anchors=[dict(L="5'", c='EX: 3/4" 2EYE')], guys=[dict(h="20'", an=0)])
+        _, ops = self.ops(spec)
+        self.assertFalse(any('394947' in o['handles'] for o in ops))
+
+    def test_arm_omni_on_slots(self):
+        _, ops = self.ops(_pole([dict(t='arm', h="33'", omni=[0, 2, 3], c=['HRZ OMNI SWITCH'])]))
+        om = [o for o in ops if o['handles'] == ['2E344E']]
+        xs = sorted(round(ph.OMNI[1] + o['dx'], 3) for o in om)
+        self.assertEqual(xs, [round(P0 + ph.ARM_SLOT_X[i], 3) for i in (0, 2, 3)])
+        self.assertTrue(all(abs(ph.OMNI[2] + o['dy'] - (G0 + ph.pos(33))) < 1e-6 for o in om))
+        self.assertFalse(any('mirrorX' in o for o in om))
+        _, ops = self.ops(_pole([dict(t='arm', h="33'", omni=[1], omni_lean='R', c=['X'])]))
+        self.assertIn('mirrorX', next(o for o in ops if o['handles'] == ['2E344E']))
+
+    def test_side_cutout_right_never_mirrored(self):
+        _, ops = self.ops(_pole([dict(t='pri', h="35'6\"", k='L', cutout='R', c=['IN: FH ARM'])]))
+        co = [o for o in ops if o['handles'] == ['2E3872']]
+        self.assertEqual(len(co), 1)
+        self.assertNotIn('mirrorX', co[0])
+        self.assertAlmostEqual(ph.CUTOUT_SIDE[1] + co[0]['dx'], P0 + 3.2159, places=3)
+
+    def test_side_cutout_left_clears_a_left_box(self):
+        _, ops = self.ops(_pole([dict(t='pri', h="35'", k='L', cutout='L', c=['IN: FH ARM'])]))
+        co = next(o for o in ops if o['handles'] == ['2E3872'])
+        self.assertAlmostEqual(ph.CUTOUT_SIDE[1] + co['dx'], P0 - 5 - 3.3132, places=3)
+
+    def test_centered_one_box_dead_end(self):
+        _, ops = self.ops(_pole([dict(t='de2', h="36'", onebox='C', c=['IN: 3/C 336ATW'])]))
+        src = ph.SRC['de1']['px']
+        box = next(o for o in ops if '2E3912' in o['handles'])
+        self.assertAlmostEqual(src + box['dx'], P0 - 2.5, places=3)       # right box set slid 2.5 left
+        self.assertIn('2E3916', box['handles'])                           # pin on the pole
+        left = next(o for o in ops if '2E3490' in o['handles'])
+        self.assertAlmostEqual(src + left['dx'], P0 + 2.5, places=3)      # left ticks and X COND from the box edge
+        self.assertFalse(any('2E3415' in o['handles'] for o in ops))      # no second box
+
+    def test_share_item_needs_no_callout(self):
+        ph.build_job(_pole([dict(t='dot', h="22'", c=['COMM', 'COMM SG']), dict(t='sg', h="22'", k='R', share=1)]))

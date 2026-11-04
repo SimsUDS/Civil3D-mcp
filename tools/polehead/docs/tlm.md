@@ -6,7 +6,7 @@ Read when any pole has TLM data (a filled PDF TLM table, a pasted Excel snippet,
 
 - The PDF TLM table (handwritten or a pasted Excel snippet). "PLEASE SEE ATTACHED EXCEL SHEET FOR TLM INFO", or a blank table with a TLM xlsx tab for the pole: use the tab whose name matches the pole number.
 - xlsx: EX = E2:H2, PR = E3:H3, CLIMATE-ZONE E4, VD-DROP E5, FLICKER E6, PRI-CIRC E7, ADDRESSn = column B, METERn = column A from row 3 down, notes from E8 down (D8 `NOTE:`).
-- A pasted snippet can extend left past the TLM box: crop wide enough to read full house numbers before calling it cut off. Truly clipped meters: leave those METER slots blank and note it.
+- A pasted snippet can extend left past the TLM box: crop wide enough to read full house numbers before calling it cut off (`survey.py` renders every pasted image over its full bbox as `p<N>_tlm_img<K>.png`; the snippets are inline images with no xref, so render the page clip, do not extract the image). Truly clipped meters: leave those METER slots blank and note it.
 
 ## Values
 
