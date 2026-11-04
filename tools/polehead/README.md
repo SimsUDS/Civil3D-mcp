@@ -106,7 +106,9 @@ for `qc.py` (see below).
     `ph` / `sa`: offsets from the pole to place them as the PDF draws them instead (a PH left of the pole is the
     mirrored one), e.g. TD2524712 2115931E: `"ph": [-31.05, 16.18, 30.0], "sa": [-24.18, 9.17, 25.08]`.
   - `onebox: "L"` / `"R"` on `de2`: dead end both ways on ONE box (box and pin on that side, the other side's ticks
-    from P + 2 and its X COND from the pole); with `top` both arrows start at that pin top.
+    from P + 2 and its X COND from the pole); with `top` both arrows start at that pin top. `onebox: "C"`: the one
+    box CENTERED on the pole (P - 2.5 to P + 2.5, pin on the pole), ticks and X CONDs both ways from its edges
+    (TD2561109 2178887E L/E).
   - `box: "B"` on `xr`/`xl`/`xb`: a SIDE XARM on each side, X CONDs from the box edges. A span guy sharing the row
     (`share`) on a boxed side starts at the box edge (P +/- 5).
   - `boxdn: true` with `box`: the box hangs under the X COND line (top on the row, edge on the pole) and the X
@@ -116,6 +118,12 @@ for `qc.py` (see below).
   - `xbank` XFMR BANK (2E3426) centered on the pole. `disc` DISCONNECT ARM (2E38FB) centered on the pole.
   - `co` / `sa` on `arm`: front view CUTOUTs / SURGE ARRESTERs at any offsets from the pole (a 3 phase FH & LA
     arm drawn S-SA per phase). `circx`: conductor circles at any offsets (with `pinx`).
+    `arm` takes `co` / `sa` with no `pins` at all (an FH & LA arm with no pins of its own: just the XARM and the pieces).
+  - `omni: [slots]` on `arm`: HRZ OMNI SWITCH, INV OMNI CLOSED (2E344E) under each listed slot, insertion on the slot,
+    on the arm line (TD2561109 4981512E). Template leans left; `omni_lean: "R"` mirrors each one about its insertion.
+  - `cutout: "R"` / `"L"` on any item: a lone side view CUTOUT (2E3872, never mirrored) on that row with no SA, e.g.
+    `IN: FH ARM` drawn as one S beside a side arm box (TD2561109 4495672E). Right: center P + 3.2159; left: 1.1 clear
+    of the leftmost box on that side (P - 3.3132, or P - 8.3132 beside a left box).
   - A guy without `c` is drawn with no DG callout or leader (the PDF draws the guy but labels no DG).
   - `o`: tie-break order for two items at the same height.
 - `share` finds its host by the exact same height first, then the same whole foot (21' and 21'6" rows each with an SG).
@@ -129,6 +137,10 @@ for `qc.py` (see below).
   the pole label (centered on the pole) drops 12 per lead dim row below them.
 - DG callouts that would land on equipment callout text on their side (QP callouts) step to the nearest clear spot, and
   the first one rises (up to attach - 8) when a leader would still run through callout text; leftovers are reported.
+- Profile `soil`: `"B"` draws the SOIL TYPE box (`SOIL TYPE = B`) under the lead dims: top 8 below the lowest lead
+  dim line, centered on the pole to farthest anchor span, slid away from the pole label until 6 clear of it. The box
+  and text handles (394947, 394948) differ in older template copies: map them with `handle_map`.
+- A `share` item needs no `c`: its callout lines go on the host (`"c": ["COMM", "COMM SG"]` on the dot, none on the SG).
 - `anchors[].L` lead as written; `guys[].an` index into `anchors` as listed (any order; the generator never reorders the list).
 
 - Spec `handle_map`: `{template handle: handle in this drawing}` for stash pieces whose handle differs in a template copy

@@ -165,6 +165,11 @@ SA_SIDE = ('2E3870', 5258.0156, -1329.3281, 0.49)
 XBANK = ('2E3426', 4610.268, -1973.8214, 20.41)   # XFMR BANK, centered on the pole, half width
 SIDEAR = ('2E33E8', 4697.5843, -2054.8031, 3.96)   # SIDE AR (recloser), centered on the pole, half width
 DISCARM = ('2E38FB', 5177.2192, -1791.1975, 34.43)   # DISCONNECT ARM, centered on the pole, half width
+# SOIL TYPE box (current template copy; older copies differ: pass spec handle_map {'394947': ..., '394948': ...}):
+# closed DECAL box, top-left (1346.8139, -807.5353), 53.146 x 11.846, SIMPLEX text 'SOIL TYPE = B'
+SOIL = dict(box='394947', text='394948', left=1346.8139, top=-807.5353, w=53.146)
+SOIL_LABEL_GAP = 6.0          # clear space between the box and the pole label (Kevin, TD2561109)
+OMNI = ('2E344E', 4580.5129, -1596.6283)   # INV OMNI CLOSED, leans left; insertion on its arm slot, on the arm line
 ANC_LEADER_MIN = 15.1                               # shorter and the leader arrowhead does not draw
 RISER_W = 3.4169
 COL_GAP = 5.75                                    # callout column clearance past the farthest equipment
@@ -547,6 +552,12 @@ def place_item(J, P, r, it, sc):
         for ox in it.get('circx', []):                 # conductor circles at any offset (pins drawn off the slots)
             J.cp([ARM_CIRC[0]], P + sh + ox - (src['px'] + ARM_SLOT_X[0]), r - src['py'])
         cp_arm_fhx(J, P + sh, r, it)
+        if isinstance(it.get('omni'), list):
+            # HRZ OMNI SWITCH on an arm: INV OMNI CLOSED under the slots in 'omni' (insertion on the slot, on the
+            # arm line, template leans left; omni_lean 'R' mirrors each one about its insertion), TD2561109 4981512E
+            for i in it['omni']:
+                ox = P + sh + ARM_SLOT_X[i]
+                J.cp([OMNI[0]], ox - OMNI[1], r - OMNI[2], mirror=ox if it.get('omni_lean') == 'R' else None)
         for i in it.get('dots', []):                   # SEC-MISC dots on the arm (comm / CATV seen end on)
             d = SRC['dot']
             J.cp(d['h'], P + sh + ARM_SLOT_X[i] - d['px'], r - d['py'])
@@ -583,7 +594,18 @@ def place_item(J, P, r, it, sc):
     elif t in ('de1', 'de2'):
         src = SRC['de1']
         ob = it.get('onebox') if t == 'de2' else None
-        if ob in ('L', 'R'):
+        if ob == 'C':
+            # dead end both ways on ONE box CENTERED on the pole (TD2561109 2178887E L/E): the right box set
+            # slides 2.5 left (box P - 2.5 to P + 2.5, pin on the pole), the left ticks and X COND slide 2.5 right
+            # so they start at the box's left edge
+            left = ['2E3415', '2E3419', '2E3490', '2E3418', '2E3417', '2E3416']
+            right = ['2E3912', '2E3916', '2E3913', '2E3914', '2E3915', '2E3918']
+            if it.get('nopins'):
+                right = [h for h in right if h not in DE1_PINS]
+            J.cp(right, P - src['px'] - 2.5, r - src['py'])
+            J.cp(left[2:], P - src['px'] + 2.5, r - src['py'])
+            a = 27.5
+        elif ob in ('L', 'R'):
             # dead end both ways on ONE box (Kevin's TD2524712 2115929E 36'6" fix): the box and pin on the ob side
             # with its ticks and X COND as usual; the other side's ticks and X COND slide 5 toward the pole
             # (ticks from P + 2, X COND from the pole), no box or pin there
@@ -602,10 +624,10 @@ def place_item(J, P, r, it, sc):
             J.cp(hs, P - src['px'], r - src['py'], mirror=P if k == 'L' else None)
             dirs = [1, -1] if t == 'de2' else ([-1] if k == 'L' else [1])
             a = 30 if sc in dirs else 5
-        if it.get('top') and ob in ('L', 'R'):
+        if it.get('top') and ob in ('L', 'R', 'C'):
             # both arrows from the one pin top
             yt = r + 2.5 + 4.4648
-            px_ = P + (-2.5 if ob == 'L' else 2.5)
+            px_ = P + {'L': -2.5, 'R': 2.5, 'C': 0}[ob]
             J.cp(['2E348D'], px_ - 4697.5843, yt - (-1389.6635))
             J.cp(['2E3492'], px_ - 4697.5843, yt - (-1389.6635))
         elif it.get('top'):
@@ -641,6 +663,19 @@ def place_item(J, P, r, it, sc):
             # (box center P +/- 2.5, row y), on the side the box is on
             d = 1 if it['box'] == 'R' else -1
             J.cp(['2E344E'], (P + d * 7.5) - 4580.5129, by - (-1596.6283))
+    if it.get('cutout') in ('L', 'R'):
+        # lone side view CUTOUT (S) beside the pole, no SA (an FH ARM side view, TD2561109 4495672E L/E 35'6").
+        # Never mirrored. Right: center P + 3.2159 (as in the Builder). Left: 1.1 clear of the leftmost box.
+        if it['cutout'] == 'R':
+            cx = P + 3.2159
+            if sc > 0:
+                a = max(a, 5.43)
+        else:
+            boxed = (t == 'pri' and k in ('L', 'B')) or t in ('de1', 'de2') or it.get('box') in ('L', 'B')
+            cx = (P - 5 if boxed else P) - 3.3132
+            if sc < 0:
+                a = max(a, P - cx + 2.2)
+        J.cp([CUTOUT_SIDE[0]], cx - CUTOUT_SIDE[1], r - SRC['fhla']['py'])
     if t == 'dot' or it.get('dot'):
         src = SRC['dot']
         if t in ('pri', 'de1', 'de2'):
@@ -706,7 +741,7 @@ def build_pole(J, P, G, spec):
     J.tag(part='callout')
     for it in items:
         r = G + it['row']
-        lines = list(it.get('above', [])) + list(it['c'])
+        lines = list(it.get('above', [])) + list(it.get('c', []))
         n_above = len(it.get('above', []))
         it['lines'] = []
         for j, line in enumerate(lines):
@@ -912,6 +947,24 @@ def build_pole(J, P, G, spec):
                 J.cp([LEADER[0]], P - LEADER[1], G - LEADER[2], edit=[dict(
                     vertices=[pt(a['x'] + gs * 1.2, G + 1.5), pt(ex - gs * 3, yb + 3), pt(ex, yb + 3)])])
         gs = 0 if both else sides[0]
+        if spec.get('soil'):
+            # SOIL TYPE box under the lead dims: top 8 below the lowest lead dim line, centered on the pole to
+            # farthest anchor span of the guy side, then slid away from the pole label until 6 clear of it
+            sd = sides[0]
+            n = max(sum(1 for a in anchors if a['gs'] == d) for d in sides)
+            top_ = G - 12 * n - 8
+            far_x = max((a['x'] for a in anchors if a['gs'] == sd), key=lambda x: abs(x - P))
+            w = SOIL['w']
+            left = (P + far_x) / 2 - w / 2
+            if gs == 0:                    # label centered on the pole (guys both sides): clear its right edge
+                left = max(left, P + 15.55 + SOIL_LABEL_GAP) if sd > 0 else min(left, P - 15.55 - SOIL_LABEL_GAP - w)
+            elif sd > 0:                   # label left of the pole, right edge P - 9.86
+                left = max(left, P - 9.86 + SOIL_LABEL_GAP)
+            else:                          # label right of the pole, left edge P + 9.9
+                left = min(left, P + 9.9 - SOIL_LABEL_GAP - w)
+            J.tag(part='soil')
+            J.cp([SOIL['box'], SOIL['text']], left - SOIL['left'], top_ - SOIL['top'],
+                 edit=[None, dict(text='SOIL TYPE = %s' % str(spec['soil']).upper())])
 
     # pole label
     J.tag(part='label')
