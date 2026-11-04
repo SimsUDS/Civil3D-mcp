@@ -31,7 +31,7 @@ differs from it. You never edit anything: you report.
 2. Symbol: crossarm vs side box vs dead end (ticks) vs X COND vs dot vs span guy (wavy) vs XFMR vs FH/LA
    (S = cutout, I bar = arrester) vs omni. Pins: which slots, upright or slanted and which way, base circles.
 3. Side: which side of the pole each box, XFMR, SG, cutout and arrow is drawn on; arrows one way or both.
-4. Callout text: wording kept (no heights on equipment; `IN:` new, no prefix existing; COMM/CATV kept;
+4. Callout text: wording kept (house style, not a difference: dashes between parts and parentheses around a voltage are dropped, `(16KV)` becomes `16KV`; `ANCHOR` and the lead are dropped from anchor labels; no heights on equipment; `IN:` new, no prefix existing; COMM/CATV kept;
    directions like (WEST) kept). Flag a missing or extra line.
 5. Guys: each down guy starts at its labeled height and ends at the anchor the PDF draws; DG callout text and
    height; anchor lead dim; anchor label only where the PDF labels it. Span guys are SG halves, not guys.
