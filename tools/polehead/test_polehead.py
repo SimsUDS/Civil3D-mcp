@@ -244,6 +244,39 @@ class NewRulesTest(unittest.TestCase):
         self.assertAlmostEqual(op['dx'] + ph.SRC['dot']['px'], 2.5)
         self.assertAlmostEqual(op['dy'] + ph.SRC['dot']['py'], -4.0)
 
+    def test_de1_one_box(self):
+        # TD2555544 1138913E 38': a one way dead end draws ONE box (and pin) on the arrow side only
+        for k, sc, want_a in (('L', 1, 0), ('L', -1, 30), ('R', 1, 30)):
+            J = ph.Job()
+            a = ph.place_item(J, 0, 0, dict(t='de1', k=k), sc)
+            hs = [h for _, op in J.ops for h in op['handles']]
+            self.assertNotIn('2E3415', hs)
+            self.assertNotIn('2E3419', hs)
+            self.assertIn('2E3912', hs)
+            self.assertEqual(a, want_a)
+        # boxes: 2 (and FH/LA on the boxes) keep the template's box on each side
+        J = ph.Job()
+        a = ph.place_item(J, 0, 0, dict(t='de1', k='L', boxes=2), 1)
+        self.assertIn('2E3415', [h for _, op in J.ops for h in op['handles']])
+        self.assertEqual(a, 5)
+
+    def test_pri_xbox(self):
+        # TD2555544 1138914E 31': pri k R with a SIDE XARM left, one X COND right out of the right box edge, on the row
+        J = ph.Job()
+        a = ph.place_item(J, 0, 0, dict(t='pri', k='R', box='L', xbox='R'), 1)
+        src = ph.SRC['pri']
+        xc = [op for _, op in J.ops if op['handles'] in (['2E348D'], ['2E3492'], src['h'][:2])]
+        self.assertEqual(len(xc), 1)
+        self.assertEqual(xc[0]['handles'], ['2E348D'])
+        self.assertAlmostEqual(xc[0]['dx'] + src['px'], 5)
+        self.assertAlmostEqual(xc[0]['dy'] + ph.PRI_XC_Y, 0)
+        self.assertEqual(a, 30)
+        # left side through the lone SIDE XARM: from its outer edge P - 5
+        J = ph.Job()
+        ph.place_item(J, 0, 0, dict(t='pri', k='R', box='L', xbox='L'), 1)
+        op = next(op for _, op in J.ops if op['handles'] == ['2E3492'])
+        self.assertAlmostEqual(op['dx'] + src['px'], -5)
+
     def test_pinx_boxup_stlt(self):
         J = ph.Job()
         ph.place_item(J, 0, 0, dict(t='arm', pinx=[9.755, 19.755, 29.755]), 1)
