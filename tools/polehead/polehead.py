@@ -119,9 +119,18 @@ FHLAF_CO_PIECE = ('2E382F', 5167.1696, -1341.8285)     # CUTOUT in the FH/LA arm
 FHLAF_SA_X = 24.4618
 FHLAF_CO_X = (-19.5139, 19.5904)
 PRI_DOT_DROP = 4.0                                  # dot under a side arm box: center below the row
+PRI_XC_Y = -1389.6635                               # pri X COND insertion y in the template (pin top, row + 6.9648)
 ARM_CIRC = ['2E3405', '2E3408', '2E3407', '2E3406']
 ARM_SLOT_X = [-29.7551, -12.128, 12.128, 29.7551]   # pin / circle slot offsets from the arm center
 DE1_PINS = ('2E3419', '2E3916')
+DE1_BACK = ('2E3415', '2E3419')     # the de1 template's box and pin on the side away from the arrow
+
+
+def de1_two_boxes(it):
+    """de1 keeps the template's box on each side only when asked (boxes: 2) or with FH/LA on the boxes."""
+    return it.get('boxes') == 2 or bool(it.get('fhla'))
+
+
 # slanted VERT P&I, already rotated in the template (never rotate): insertion = pin base, ON its arm line (0.2 above left a gap, TD2486645)
 SLANT_PIN = {'L': ('2E3477', 4529.5100, -1471.6283),    # leaning left, 25 deg (mirrored)
              'R': ('2E3472', 4525.7361, -1496.6283)}    # leaning right, 335 deg
@@ -350,9 +359,22 @@ def place_item(J, P, r, it, sc):
         else:
             J.cp(src['h'][2:], P - src['px'] + (-2.5 if k == 'C' else 0), dy, mirror=P if k == 'L' else None)
         pinx = P + {'R': 2.5, 'L': -2.5, 'C': 0, 'B': 0}[k]
-        J.cp(src['h'][:2], pinx - src['px'], dy)          # X CONDs start at the pin
         box = {'R': (0, 5), 'L': (-5, 0), 'C': (-2.5, 2.5), 'B': (-5, 5)}[k]
         a = max(sc * box[0], sc * box[1], 0)
+        if it.get('xbox'):
+            # X COND out of the side of the box ON the row, from the outermost box edge on that side (a lone
+            # SIDE XARM from `box` counts), only on the sides listed: 'R', 'L' or 'B' (Kevin, TD2555544
+            # 1138914E 31': two boxes, pin on the right one, one arrow right out of the box)
+            for d in {'R': [1], 'L': [-1], 'B': [1, -1]}[it['xbox']]:
+                edge = box[1] if d > 0 else -box[0]
+                if it.get('box') in (('R', 'B') if d > 0 else ('L', 'B')):
+                    edge = 5
+                h = src['h'][1] if d > 0 else src['h'][0]       # 2E348D runs right, 2E3492 left
+                J.cp([h], (P + d * edge) - src['px'], r - PRI_XC_Y)
+                if d == sc:
+                    a = max(a, edge + 25)
+        else:
+            J.cp(src['h'][:2], pinx - src['px'], dy)      # X CONDs start at the pin
         if it.get('fhla'):
             # FH/LA drawn on the primary box: SA + CUTOUT on that box, no box of their own.
             box_right = k == 'R'
@@ -619,11 +641,15 @@ def place_item(J, P, r, it, sc):
             a = 30 if (sc < 0) == (ob == 'L') else 25
         else:
             hs = src['h'] + (SRC['de2x']['h'] if t == 'de2' else [])
+            if t == 'de1' and not de1_two_boxes(it):
+                # one way dead end: ONE box (with its pin, ticks and X COND) on the arrow side, edge on the pole,
+                # nothing on the other side (Kevin, TD2555544 1138913E 38' and 1138933E 37')
+                hs = [h for h in hs if h not in DE1_BACK]
             if it.get('nopins'):
                 hs = [h for h in hs if h not in DE1_PINS]
             J.cp(hs, P - src['px'], r - src['py'], mirror=P if k == 'L' else None)
             dirs = [1, -1] if t == 'de2' else ([-1] if k == 'L' else [1])
-            a = 30 if sc in dirs else 5
+            a = 30 if sc in dirs else (5 if t == 'de2' or de1_two_boxes(it) else 0)
         if it.get('top') and ob in ('L', 'R', 'C'):
             # both arrows from the one pin top
             yt = r + 2.5 + 4.4648
@@ -669,13 +695,14 @@ def place_item(J, P, r, it, sc):
         if it['cutout'] == 'R':
             # beside a right box (dead end boxes P - 5 to P + 5, a right or both-sides arm box, a right SIDE XARM)
             # the S sits past the box, as the PDF draws it (TD2555545 716875H / 1138912E: FH on a dead end)
-            boxed_r = (t == 'pri' and k in ('R', 'B')) or (t in ('de1', 'de2') and not it.get('onebox')) \
-                or it.get('box') in ('R', 'B')
+            boxed_r = (t == 'pri' and k in ('R', 'B')) or (t == 'de2' and not it.get('onebox')) \
+                or (t == 'de1' and (k != 'L' or de1_two_boxes(it))) or it.get('box') in ('R', 'B')
             cx = (P + 5 if boxed_r else P) + 3.2159
             if sc > 0:
                 a = max(a, cx - P + 2.2141)
         else:
-            boxed = (t == 'pri' and k in ('L', 'B')) or t in ('de1', 'de2') or it.get('box') in ('L', 'B')
+            boxed = (t == 'pri' and k in ('L', 'B')) or t == 'de2' \
+                or (t == 'de1' and (k == 'L' or de1_two_boxes(it))) or it.get('box') in ('L', 'B')
             cx = (P - 5 if boxed else P) - 3.3132
             if sc < 0:
                 a = max(a, P - cx + 2.2)

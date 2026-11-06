@@ -49,7 +49,9 @@ for `qc.py` (see below).
 - Item `h`: true height as written. No height from the planner: `h` = where the PDF draws it (for the row) and
   `label: "_'"` so the dim reads `_'`. `c`: callout lines at the row. `above`: extra lines stacked above the row's own line (FH/LA on a primary box).
 - Item types (`t`) and `k`:
-  - `pri` side arm box with pin and X CONDs. `k`: `R`, `L` or `C` box position, `B` a box on each side. `fhla: true` puts the SA and CUTOUT on that box.
+  - `pri` side arm box with pin and X CONDs. `k`: `R`, `L` or `C` box position, `B` a box on each side. `fhla: true` puts the SA and CUTOUT on that box. `xbox: "R"` / `"L"` / `"B"`: the X COND comes out of
+    the side of the box ON the row (from the outermost box edge on that side, a `box` SIDE XARM included), only on the
+    listed sides, instead of both ways from the pin top (TD2555544 1138914E 31': two boxes, pin on the right one, one arrow right).
   - `fhla` side view FH/LA box. `k: "R"` puts the box right of the pole (default left).
   - `xfmr` side transformer, `k` `L`/`C`/`R`.
   - `xr`, `xl`, `xb` X COND right, left, both. COMM and CATV lines are always X CONDs; add `dot: true` to keep the SEC-MISC dot under them.
@@ -61,7 +63,8 @@ for `qc.py` (see below).
   - `slant: {"<slot>": "L" | "R"}` on `arm`, `arm2` or `arm4`: that slot's pin is drawn slanted (leaning left 2E3477
     or right 2E3472, already rotated in the template) with its base on the slot, on the arm line. The upright pin
     of that slot is left out, so nothing has to be erased. Example: `"slant": {"3": "R"}`.
-  - `de1` side view dead end one way (`k: "L"` points left), `de2` both ways. `nopins: true` leaves the pins off;
+  - `de1` side view dead end one way (`k: "L"` points left): ONE box, edge on the pole, on the arrow side only
+    (TD2555544); `boxes: 2` keeps the template's second box on the far side (also kept with `fhla`). `de2` both ways. `nopins: true` leaves the pins off;
     `fhla: "L"` / `"R"` puts the SA and CUTOUT on the dead end boxes (`"R"` = cutout left, SA right).
   - `box: "R"` / `"L"` on any item adds a lone SIDE XARM (guard arm) beside the pole, centered on that row (the
     middle of its wall on the dim point). With `omni` the box hangs just below the row line and the omni sits at the box center.
