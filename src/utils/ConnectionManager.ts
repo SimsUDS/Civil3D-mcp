@@ -13,6 +13,30 @@ export interface ApplicationCommandClient {
 }
 
 /**
+ * The drawing this MCP session is pinned to (set by civil3d_drawing action=activate). While pinned, every
+ * plugin request carries expectDrawing, and the plugin refuses it if another tab is active when it runs.
+ * Health checks, the document list and the switch itself are never bound.
+ */
+let pinnedDrawing: string | null = null;
+const UNPINNED_COMMANDS = new Set(["getCivil3DHealth", "listDocuments", "activateDocument", "newDrawing"]);
+
+export function setPinnedDrawing(identity: string | null): void {
+  pinnedDrawing = identity && identity.trim() ? identity : null;
+}
+
+export function getPinnedDrawing(): string | null {
+  return pinnedDrawing;
+}
+
+export function withPinnedDrawing(command: string, params: unknown): unknown {
+  if (!pinnedDrawing || UNPINNED_COMMANDS.has(command)) return params;
+  if (params === null || params === undefined) return { expectDrawing: pinnedDrawing };
+  if (typeof params !== "object" || Array.isArray(params)) return params;
+  const object = params as Record<string, unknown>;
+  return "expectDrawing" in object ? object : { ...object, expectDrawing: pinnedDrawing };
+}
+
+/**
  * Runs an operation against the Civil 3D plugin. The native transport accepts
  * exactly one JSON-RPC request per TCP connection, so every sendCommand call
  * receives its own short-lived connection. Composite domain actions may safely
@@ -22,7 +46,7 @@ export async function withApplicationConnection<T>(
   operation: (client: ApplicationCommandClient) => Promise<T>
 ): Promise<T> {
   const client: ApplicationCommandClient = {
-    sendCommand: async (command, params = {}) => await sendSingleCommand(command, params),
+    sendCommand: async (command, params = {}) => await sendSingleCommand(command, withPinnedDrawing(command, params)),
   };
 
   return await operation(client);

@@ -21,15 +21,7 @@ public static class CivilExecution
         try
         {
           var doc = App.DocumentManager.MdiActiveDocument ?? throw new JsonRpcDispatchException("CIVIL3D.NO_DRAWING", "No active drawing is open in Civil 3D.");
-          var expectedDrawingIdentity = PluginRuntime.GetExpectedDrawingIdentity();
-          var activeDrawingIdentity = PluginRuntime.GetDrawingIdentity(doc);
-          if (!string.IsNullOrWhiteSpace(expectedDrawingIdentity) &&
-              !string.Equals(expectedDrawingIdentity, activeDrawingIdentity, StringComparison.OrdinalIgnoreCase))
-          {
-            throw new JsonRpcDispatchException(
-              "CIVIL3D.CONFLICT",
-              $"The active drawing changed from '{expectedDrawingIdentity}' to '{activeDrawingIdentity}' while the operation was queued. No drawing changes were made.");
-          }
+          EnsureExpectedDrawing(doc);
           var civilDoc = CivilApplication.ActiveDocument ?? throw new JsonRpcDispatchException("CIVIL3D.NO_DRAWING", "No active Civil 3D document is available.");
           var database = doc.Database;
 
@@ -73,6 +65,7 @@ public static class CivilExecution
       {
         try
         {
+          EnsureExpectedDrawing(App.DocumentManager.MdiActiveDocument);
           result = await action();
         }
         catch (Exception ex)
@@ -88,6 +81,23 @@ public static class CivilExecution
 
       return result!;
     });
+  }
+
+  /// <summary>
+  /// Refuses the operation when the request is bound to a drawing (expectDrawing, or a background job's
+  /// drawing) and a different drawing is active now. Nothing has been changed when this throws.
+  /// </summary>
+  private static void EnsureExpectedDrawing(Document? doc)
+  {
+    var expected = PluginRuntime.GetExpectedDrawingIdentity();
+    if (string.IsNullOrWhiteSpace(expected)) return;
+    var active = PluginRuntime.GetDrawingIdentity(doc);
+    if (!string.Equals(expected, active, StringComparison.OrdinalIgnoreCase))
+    {
+      throw new JsonRpcDispatchException(
+        "CIVIL3D.CONFLICT",
+        $"This request is for '{expected}' but the active drawing is '{active ?? "none"}'. No drawing changes were made. Switch with civil3d_drawing action=activate.");
+    }
   }
 
   public static Task<T> ReadAsync<T>(Func<Document, CivilDocument, Database, Transaction, T> action)

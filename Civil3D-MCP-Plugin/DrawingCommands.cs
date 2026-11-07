@@ -152,6 +152,128 @@ public static class DrawingCommands
     });
   }
 
+  // ------------------------------------------------------------ open drawings (tabs in this Civil 3D)
+
+  private static List<Document> OpenDocuments()
+  {
+    var docs = new List<Document>();
+    foreach (Document d in App.DocumentManager)
+    {
+      docs.Add(d);
+    }
+    return docs;
+  }
+
+  /// <summary>
+  /// Open drawings matching a name: exact full path, then exact file name (with or without .dwg),
+  /// then file names containing the text (e.g. a TD number). Case-insensitive.
+  /// </summary>
+  internal static List<Document> MatchDocuments(string query)
+  {
+    var docs = OpenDocuments();
+    var q = query.Trim().Trim('"');
+    string FileOf(Document d) => Path.GetFileName(PluginRuntime.GetDrawingIdentity(d) ?? d.Name);
+
+    var byPath = docs.Where(d => string.Equals(
+      SafeFullPath(PluginRuntime.GetDrawingIdentity(d)), SafeFullPath(q), StringComparison.OrdinalIgnoreCase)).ToList();
+    if (byPath.Count > 0) return byPath;
+
+    var byName = docs.Where(d =>
+      string.Equals(FileOf(d), q, StringComparison.OrdinalIgnoreCase) ||
+      string.Equals(Path.GetFileNameWithoutExtension(FileOf(d)), q, StringComparison.OrdinalIgnoreCase)).ToList();
+    if (byName.Count > 0) return byName;
+
+    return docs.Where(d => FileOf(d).Contains(q, StringComparison.OrdinalIgnoreCase)).ToList();
+  }
+
+  private static string? SafeFullPath(string? path)
+  {
+    if (string.IsNullOrWhiteSpace(path)) return path;
+    try { return Path.GetFullPath(path); } catch { return path; }
+  }
+
+  /// <summary>The one open drawing a name refers to, or a CIVIL3D error naming the problem.</summary>
+  internal static Document ResolveDocument(string query)
+  {
+    var matches = MatchDocuments(query);
+    if (matches.Count == 1) return matches[0];
+    var open = string.Join(", ", OpenDocuments().Select(d => Path.GetFileName(PluginRuntime.GetDrawingIdentity(d) ?? d.Name)));
+    if (matches.Count == 0)
+    {
+      throw new JsonRpcDispatchException("CIVIL3D.NOT_FOUND", $"No open drawing matches '{query}'. Open drawings: {open}.");
+    }
+    var names = string.Join(", ", matches.Select(d => Path.GetFileName(PluginRuntime.GetDrawingIdentity(d) ?? d.Name)));
+    throw new JsonRpcDispatchException("CIVIL3D.INVALID_INPUT", $"'{query}' matches more than one open drawing ({names}); give more of the name or the full path.");
+  }
+
+  private static Dictionary<string, object?> DescribeDocument(Document d, Document? active) => new()
+  {
+    ["drawingName"] = d.Name,
+    ["fileName"] = Path.GetFileName(PluginRuntime.GetDrawingIdentity(d) ?? d.Name),
+    ["filePath"] = d.Database.Filename,
+    ["identity"] = PluginRuntime.GetDrawingIdentity(d),
+    ["isActive"] = ReferenceEquals(d, active),
+    ["readOnly"] = d.IsReadOnly,
+  };
+
+  public static Task<object?> ListDocumentsAsync()
+  {
+    var active = App.DocumentManager.MdiActiveDocument;
+    var docs = OpenDocuments();
+    return Task.FromResult<object?>(new Dictionary<string, object?>
+    {
+      ["active"] = PluginRuntime.GetDrawingIdentity(active),
+      ["count"] = docs.Count,
+      ["documents"] = docs.Select(d => DescribeDocument(d, active)).ToList(),
+    });
+  }
+
+  /// <summary>
+  /// Makes another open drawing the active tab (same pattern as newDrawing). Runs through the host execution
+  /// gate, so it waits for any queued operation and nothing runs in the middle of the switch. The switch is
+  /// confirmed before returning: if Civil 3D does not make the drawing active, the call fails.
+  /// </summary>
+  public static async Task<object?> ActivateDocumentAsync(JsonObject? parameters)
+  {
+    var query = PluginRuntime.GetOptionalString(parameters, "drawing");
+    if (string.IsNullOrWhiteSpace(query))
+    {
+      throw new JsonRpcDispatchException("CIVIL3D.INVALID_INPUT", "activateDocument requires 'drawing' (full path, file name or part of it).");
+    }
+
+    var target = ResolveDocument(query);
+    var targetIdentity = PluginRuntime.GetDrawingIdentity(target);
+    var previous = PluginRuntime.GetActiveDrawingIdentity();
+
+    if (!ReferenceEquals(App.DocumentManager.MdiActiveDocument, target))
+    {
+      await CivilExecution.ExecuteInCommandContextAsync<object?>(() =>
+      {
+        App.DocumentManager.MdiActiveDocument = target;
+        return Task.FromResult<object?>(null);
+      });
+
+      // The switch can land after the command context ends; give it a moment.
+      for (var i = 0; i < 30 && !ReferenceEquals(App.DocumentManager.MdiActiveDocument, target); i++)
+      {
+        await Task.Delay(100);
+      }
+      if (!ReferenceEquals(App.DocumentManager.MdiActiveDocument, target))
+      {
+        throw new JsonRpcDispatchException("CIVIL3D.CONFLICT",
+          $"Civil 3D did not switch to '{Path.GetFileName(targetIdentity)}'; the active drawing is still '{Path.GetFileName(PluginRuntime.GetActiveDrawingIdentity())}'.");
+      }
+    }
+
+    return new Dictionary<string, object?>
+    {
+      ["activated"] = true,
+      ["previous"] = previous,
+      ["active"] = targetIdentity,
+      ["drawing"] = DescribeDocument(target, App.DocumentManager.MdiActiveDocument),
+    };
+  }
+
   public static Task<object?> UndoDrawingAsync(JsonObject? parameters)
   {
     var steps = PluginRuntime.GetOptionalInt(parameters, "steps") ?? 1;

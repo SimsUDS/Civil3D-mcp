@@ -175,9 +175,17 @@ public static class PluginRuntime
     }
     var parameters = request["params"] as JsonObject;
 
+    // expectDrawing (any method): the drawing this request is meant for. Resolved to one open drawing now and
+    // checked against the active drawing when the operation actually runs, so a tab switch (by hand or
+    // otherwise) between queueing and running refuses the request instead of editing the wrong drawing.
+    string? expectedIdentity = null;
+    var expectDrawing = GetOptionalString(parameters, "expectDrawing");
+    parameters?.Remove("expectDrawing");
+
     var previousOperation = CurrentRequestOperation.Value;
     var previousRequestId = CurrentRequestId.Value;
     var previousCancellation = CurrentRequestCancellation.Value;
+    var previousExpected = CurrentExpectedDrawingIdentity.Value;
     CurrentRequestOperation.Value = method;
     CurrentRequestId.Value = id?.ToJsonString();
     CurrentRequestCancellation.Value = cancellationToken;
@@ -186,6 +194,11 @@ public static class PluginRuntime
     try
     {
       PluginLog.Debug("Dispatch", $"-> {method} [{CurrentRequestId.Value ?? "no-id"}]");
+      if (!string.IsNullOrWhiteSpace(expectDrawing))
+      {
+        expectedIdentity = GetDrawingIdentity(DrawingCommands.ResolveDocument(expectDrawing));
+        CurrentExpectedDrawingIdentity.Value = expectedIdentity;
+      }
       var result = await CommandDispatcher.DispatchAsync(method, parameters, cancellationToken);
       PluginLog.Debug("Dispatch", $"<- {method} [{CurrentRequestId.Value ?? "no-id"}] ok durationMs={timer.ElapsedMilliseconds}");
       return JsonRpcProtocol.SerializeResult(id, result);
@@ -212,6 +225,7 @@ public static class PluginRuntime
       CurrentRequestOperation.Value = previousOperation;
       CurrentRequestId.Value = previousRequestId;
       CurrentRequestCancellation.Value = previousCancellation;
+      CurrentExpectedDrawingIdentity.Value = previousExpected;
     }
   }
 
