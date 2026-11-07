@@ -11,6 +11,9 @@ public static class CivilExecution
 
   public static async Task<T> ExecuteAsync<T>(Func<Document, CivilDocument, Database, Transaction, T> action, bool write)
   {
+    // Read here: the command-context callback runs on AutoCAD's thread, where the request's AsyncLocal
+    // values do not flow (tested live: an expectDrawing read inside the callback was always empty).
+    var expected = PluginRuntime.GetExpectedDrawingIdentity();
     return await ExecuteSerializedAsync(async () =>
     {
       T? result = default;
@@ -21,7 +24,7 @@ public static class CivilExecution
         try
         {
           var doc = App.DocumentManager.MdiActiveDocument ?? throw new JsonRpcDispatchException("CIVIL3D.NO_DRAWING", "No active drawing is open in Civil 3D.");
-          EnsureExpectedDrawing(doc);
+          EnsureExpectedDrawing(doc, expected);
           var civilDoc = CivilApplication.ActiveDocument ?? throw new JsonRpcDispatchException("CIVIL3D.NO_DRAWING", "No active Civil 3D document is available.");
           var database = doc.Database;
 
@@ -56,6 +59,7 @@ public static class CivilExecution
 
   public static async Task<T> ExecuteInCommandContextAsync<T>(Func<Task<T>> action)
   {
+    var expected = PluginRuntime.GetExpectedDrawingIdentity();   // see ExecuteAsync
     return await ExecuteSerializedAsync(async () =>
     {
       T? result = default;
@@ -65,7 +69,7 @@ public static class CivilExecution
       {
         try
         {
-          EnsureExpectedDrawing(App.DocumentManager.MdiActiveDocument);
+          EnsureExpectedDrawing(App.DocumentManager.MdiActiveDocument, expected);
           result = await action();
         }
         catch (Exception ex)
@@ -87,9 +91,8 @@ public static class CivilExecution
   /// Refuses the operation when the request is bound to a drawing (expectDrawing, or a background job's
   /// drawing) and a different drawing is active now. Nothing has been changed when this throws.
   /// </summary>
-  private static void EnsureExpectedDrawing(Document? doc)
+  private static void EnsureExpectedDrawing(Document? doc, string? expected)
   {
-    var expected = PluginRuntime.GetExpectedDrawingIdentity();
     if (string.IsNullOrWhiteSpace(expected)) return;
     var active = PluginRuntime.GetDrawingIdentity(doc);
     if (!string.Equals(expected, active, StringComparison.OrdinalIgnoreCase))
