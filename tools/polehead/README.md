@@ -52,7 +52,10 @@ for `qc.py` (see below).
   - `pri` side arm box with pin and X CONDs. `k`: `R`, `L` or `C` box position, `B` a box on each side. `fhla: true` puts the SA and CUTOUT on that box. `xbox: "R"` / `"L"` / `"B"`: the X COND comes out of
     the side of the box ON the row (from the outermost box edge on that side, a `box` SIDE XARM included), only on the
     listed sides, instead of both ways from the pin top (TD2555544 1138914E 31': two boxes, pin on the right one, one arrow right).
-  - `fhla` side view FH/LA box. `k: "R"` puts the box right of the pole (default left).
+  - `fhla` side view FH/LA box. `k: "R"` puts the box right of the pole (default left). The template draws the
+    SA on the box's side and the S on the other; `saside: "R"` / `"L"` puts the SA on the far side of the pole
+    from the box instead, with the S 1.1 clear of the box's outer edge (S, box left, SA right = `saside: "R"`;
+    TD2558860 1281136E 34' FH & LA ARM).
   - `xfmr` side transformer, `k` `L`/`C`/`R`.
   - `xr`, `xl`, `xb` X COND right, left, both. COMM and CATV lines are always X CONDs; add `dot: true` to keep the SEC-MISC dot under them.
   - `dot` SEC-MISC dot alone (a bare dot with no line).
@@ -90,6 +93,9 @@ for `qc.py` (see below).
     hangs SEC-MISC dots (template 2A500C) under the line at those offsets from the pole (comm on a guard arm).
   - `ph` PH & LA (pothead): the template example group copied as is, `k: "L"` left leaning PH (box right of the
     pole, SA beyond it, PH left; 2E3866/2E386B/2E386D) or `k: "R"` right leaning PH (2E3811/2E386C/2E386E). Never use `fhla` for a PH.
+    `phbox: "L"` / `"R"`: the box on the other side of the pole from the template; the whole group slides 5
+    that way (box edge on the pole, PH beyond the box, SA on the far side of the pole). Slanted PH, box, pole,
+    SA = `k: "L"` `phbox: "L"` (TD2558860 4796602E 33' PH & LA ARM).
   - `top: true` on `de1`/`de2`: X CONDs both ways from the pin tops too, when the PDF draws arrows over the dead end pins.
   - `riser` TOR: riser box (2A4127) from the ground to its row, `k` `C` centered on the pole (pole runs through it), `R`/`L` beside it. Callout `TOR`.
   - `qp` QUEENS POST: a line at its row from the pole out to its anchor's distance (`an`, or its own `L`). Guys with

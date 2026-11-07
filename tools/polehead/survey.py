@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """One-call survey of a pole head PDF (workflow step 1).
 
+    python -I survey.py --find "<job folder>" <outdir>      first: which PDF(s) and pages hold the pole heads
     python -I survey.py "<TD>_POLE HEAD TEMPLATE.pdf" <outdir>
+
+--find checks every PDF in the job folder (forms, blank forms, sketches drawn on a basemap, scans) and
+writes find.json; see classify_page.
 
 Writes into <outdir> (never the job folder):
   text.txt            condensed text of every page (callout wording; empty for scans)
@@ -66,8 +70,89 @@ def find_poles(page, area):
     return poles
 
 
+CALLOUT_AT = re.compile(r"@\s*\d{1,2}(?:'|\b)")      # '@ 37'', '@36'6"', '@ 22' (callout heights)
+POLE_NO = re.compile(r'\b\d{6,8}[EH]\b')
+LOOKING = re.compile(r'LOOKING\s+(N|E|NORTH|EAST)\b')
+
+
+def classify_page(page):
+    """What a PDF page holds, for finding the pole heads in a job folder (workflow step 1).
+
+    form     the AUD POLE HEAD TEMPLATE form with a pole number (one pole per page)
+    blank    the form with no pole number (XXXX), or the planner's PREMADE BLOCKS reference page
+    sketch   pole head sketches drawn somewhere else, e.g. on the basemap (TD2558870): LOOKING N / LOOKING E
+             labels with callouts at heights. Each sketch is tied to its pole by a leader; read the leaders,
+             not the label text (that job had two sketches both labeled 1281755E)
+    scan     no text layer: look at the thumbnail
+    other    anything else (basemap without sketches, cover sheet, permits)"""
+    raw = page.get_text()
+    up = raw.upper()
+    rec = dict(callouts=len(CALLOUT_AT.findall(raw)), looking=[], poles=sorted(set(POLE_NO.findall(raw))),
+               tlm_tables=up.count('METER NUMBER'))
+    if not raw.strip():
+        rec['kind'] = 'scan'
+    elif 'POLE HEAD DETAIL' in up:
+        head = ' '.join(page.get_text(clip=frac(page, HEADER)).split())
+        toks = re.sub(r'STATION\s*#|POLE\s*#', ' ', head).split()
+        pole_no = next((t for t in toks if re.fullmatch(r'\d{4,8}[EH]', t)), None)
+        rec['pole'] = pole_no
+        rec['kind'] = 'form' if pole_no and 'PREMADE BLOCKS' not in up else 'blank'
+    else:
+        for w in page.get_text('blocks'):
+            m = LOOKING.search(' '.join(w[4].upper().split()))
+            if m:
+                rec['looking'].append(dict(dir=m.group(1)[0], bbox=[round(v, 1) for v in w[:4]]))
+        rec['kind'] = 'sketch' if rec['looking'] and rec['callouts'] >= 3 else 'other'
+    return rec
+
+
+def find(folder, out):
+    """Check EVERY PDF in the job folder for pole heads, not just the one named POLEHEADS (planners sometimes
+    draw them on the basemap or in another PDF). Writes find.json and a 40 dpi thumbnail of every scan or
+    sketch page into out, and prints one line per page plus where the pole heads are."""
+    os.makedirs(out, exist_ok=True)
+    pdfs = sorted(f for f in os.listdir(folder) if f.lower().endswith('.pdf'))
+    report, hits = [], []
+    for f in pdfs:
+        try:
+            doc = pymupdf.open(os.path.join(folder, f))
+        except Exception as e:                      # a damaged or locked PDF: say so, keep going
+            print('%s: cannot open (%s)' % (f, e))
+            continue
+        for i, page in enumerate(doc):
+            rec = dict(pdf=f, page=i + 1, size=[round(page.rect.width), round(page.rect.height)], **classify_page(page))
+            if rec['kind'] in ('scan', 'sketch'):
+                thumb = 'find_%s_p%d.png' % (re.sub(r'\W+', '_', os.path.splitext(f)[0]), i + 1)
+                page.get_pixmap(dpi=40).save(os.path.join(out, thumb))
+                rec['thumb'] = thumb
+            report.append(rec)
+            extra = {'form': ' pole %s' % rec.get('pole'),
+                     'sketch': ' %d LOOKING label(s), %d callouts, poles %s' % (
+                         len(rec['looking']), rec['callouts'], ', '.join(rec['poles']) or '-'),
+                     'scan': ' (no text layer, check the thumbnail)'}.get(rec['kind'], '')
+            if rec['tlm_tables'] and rec['kind'] not in ('form', 'blank'):   # the form prints its own table
+                extra += ', %d TLM table(s)' % rec['tlm_tables']
+            print('%s p%d: %s%s' % (f, i + 1, rec['kind'], extra))
+            if rec['kind'] in ('form', 'sketch'):
+                hits.append(rec)
+    with open(os.path.join(out, 'find.json'), 'w', encoding='utf-8') as fh:
+        json.dump(report, fh, indent=1)
+    forms = sorted({r['pdf'] for r in hits if r['kind'] == 'form'})
+    sketches = ['%s p%d' % (r['pdf'], r['page']) for r in hits if r['kind'] == 'sketch']
+    if forms:
+        print('pole head forms: %s (run survey.py on it)' % ', '.join(forms))
+    if sketches:
+        print('pole head sketches outside the form: %s (no survey.py; crop the LOOKING labels by hand)'
+              % ', '.join(sketches))
+    if not hits:
+        print('no pole heads found in any PDF; check the scan thumbnails, then ask Kevin')
+    return 0
+
+
 def main(argv=None):
     argv = argv or sys.argv[1:]
+    if len(argv) == 3 and argv[0] == '--find':
+        return find(argv[1], argv[2])
     if len(argv) != 2:
         print(__doc__)
         return 2

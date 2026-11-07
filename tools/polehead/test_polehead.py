@@ -452,3 +452,49 @@ class FasterDraftingTests(unittest.TestCase):
 
     def test_share_item_needs_no_callout(self):
         ph.build_job(_pole([dict(t='dot', h="22'", c=['COMM', 'COMM SG']), dict(t='sg', h="22'", k='R', share=1)]))
+
+
+class SplitSideTest(unittest.TestCase):
+    """fhla saside and ph phbox (TD2558860 1281136E 34', 4796602E 33')."""
+
+    def _ops(self, it, sc=1):
+        J = ph.Job()
+        a = ph.place_item(J, 100.0, -50.0, it, sc)
+        return a, [op for _, op in J.ops]
+
+    def test_fhla_sa_across_the_pole(self):
+        a, ops = self._ops(dict(t='fhla', h="34'", saside='R'))
+        px = ph.SRC['fhla']['px']
+        box = next(o for o in ops if o['handles'] == [ph.FHLA_BOX])
+        sa = next(o for o in ops if o['handles'] == [ph.FHLA_SA])
+        co = next(o for o in ops if o['handles'] == [ph.CUTOUT_SIDE[0]])
+        self.assertNotIn('mirrorX', box)                                  # box stays left of the pole
+        self.assertEqual(sa['mirrorX'], 100.0)                            # SA mirrored to the right
+        self.assertAlmostEqual(box['dx'] + px, 100.0, places=3)
+        self.assertAlmostEqual(co['dx'] + ph.CUTOUT_SIDE[1], 100.0 - 8.3132, places=3)   # S left of the box
+        self.assertAlmostEqual(a, 7.0)
+        a, _ = self._ops(dict(t='fhla', h="34'", saside='R'), -1)
+        self.assertAlmostEqual(a, ph.CUTOUT_HW + 8.3132)
+
+    def test_fhla_box_right_sa_left(self):
+        _, ops = self._ops(dict(t='fhla', h="34'", k='R', saside='L'))
+        box = next(o for o in ops if o['handles'] == [ph.FHLA_BOX])
+        sa = next(o for o in ops if o['handles'] == [ph.FHLA_SA])
+        co = next(o for o in ops if o['handles'] == [ph.CUTOUT_SIDE[0]])
+        self.assertEqual(box['mirrorX'], 100.0)
+        self.assertNotIn('mirrorX', sa)
+        self.assertAlmostEqual(co['dx'] + ph.CUTOUT_SIDE[1], 100.0 + 8.2159, places=3)
+
+    def test_fhla_saside_on_box_side_is_the_template(self):
+        self.assertEqual(self._ops(dict(t='fhla', h="34'", saside='L'))[1], self._ops(dict(t='fhla', h="34'"))[1])
+        with self.assertRaises(ValueError):
+            self._ops(dict(t='fhla', h="34'", saside='X'))
+
+    def test_ph_box_left(self):
+        a0, base = self._ops(dict(t='ph', h="33'", k='L'))
+        a, ops = self._ops(dict(t='ph', h="33'", k='L', phbox='L'))
+        self.assertAlmostEqual(ops[0]['dx'], base[0]['dx'] - 5, places=4)
+        self.assertAlmostEqual(a, a0 - 5)
+        self.assertEqual(self._ops(dict(t='ph', h="33'", k='L', phbox='R'))[1], base)   # template side: no shift
+        _, ops = self._ops(dict(t='ph', h="33'", k='R', phbox='R'))
+        self.assertAlmostEqual(ops[0]['dx'], self._ops(dict(t='ph', h="33'", k='R'))[1][0]['dx'] + 5, places=4)

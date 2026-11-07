@@ -322,6 +322,8 @@ def assign_rows(items):
 
 
 CUTOUT_SIDE = ('2E3872', 5267.7315)                # side view CUTOUT (S), insertion = center, P + 3.2159 in the Builder
+CUTOUT_HW = 2.2159                                 # half width of that CUTOUT
+FHLA_SA, FHLA_BOX = '2E3870', '2E3806'             # side view FH/LA template: SA at P - 6.5, box P - 5 to P
 
 
 def cp_fhla(J, P, r, handles, cutout_left, left_edge=None):
@@ -383,8 +385,24 @@ def place_item(J, P, r, it, sc):
             a = max(a, right if sc > 0 else left)
     elif t == 'fhla':
         box_right = k == 'R'                               # box left of the pole unless 'R'
-        cp_fhla(J, P, r, SRC['fhla']['h'], box_right)
-        right, left = (7.0, 5.43) if box_right else (5.43, 7.0)
+        sa_side = it.get('saside')
+        if sa_side not in (None, 'L', 'R'):
+            raise ValueError("fhla saside must be 'L' or 'R'")
+        if sa_side and (sa_side == 'R') == (not box_right):
+            # SA on the far side of the pole from the box, S outside the box (Kevin, TD2558860 1281136E 34'
+            # FH & LA ARM: S, box left of the pole, SA right of the pole). The template draws box and SA on
+            # the same side; the box keeps its usual place, the SA is mirrored across the pole, the S (never
+            # mirrored) sits 1.1 clear of the box's outer edge.
+            src = SRC['fhla']
+            sa_h, box_h = FHLA_SA, FHLA_BOX
+            J.cp([box_h], P - src['px'], r - src['py'], mirror=P if box_right else None)
+            J.cp([sa_h], P - src['px'], r - src['py'], mirror=None if box_right else P)
+            cx = P + 8.2159 if box_right else P - 8.3132
+            J.cp([CUTOUT_SIDE[0]], cx - CUTOUT_SIDE[1], r - src['py'])
+            right, left = (CUTOUT_HW + 8.2159, 7.0) if box_right else (7.0, CUTOUT_HW + 8.3132)
+        else:
+            cp_fhla(J, P, r, SRC['fhla']['h'], box_right)
+            right, left = (7.0, 5.43) if box_right else (5.43, 7.0)
         a = right if sc > 0 else left
     elif t == 'xfmr':
         src = SRC['xfmr']
@@ -432,7 +450,15 @@ def place_item(J, P, r, it, sc):
     elif t == 'ph':
         # PH & LA: copy the template example group as is, k 'L' (left leaning PH) or 'R' (right leaning PH)
         hs, px, py, ext_r, ext_l = PH[k]
-        J.cp(hs, P - px, r - py)
+        # phbox: the box on the other side of the pole from the template (k 'L' has it right, 'R' left):
+        # the whole group slides 5 that way, so box edge on the pole, PH beyond the box, SA on the far side
+        # (Kevin, TD2558860 4796602E 33' PH & LA ARM: slanted PH, box, pole, SA)
+        pb = it.get('phbox')
+        if pb not in (None, 'L', 'R'):
+            raise ValueError("ph phbox must be 'L' or 'R'")
+        shift = 0 if pb in (None, 'R' if k == 'L' else 'L') else (-5 if pb == 'L' else 5)
+        J.cp(hs, P - px + shift, r - py)
+        ext_r, ext_l = ext_r + shift, ext_l - shift
         a = ext_r if sc > 0 else ext_l
     elif t == 'stlt':
         # ST LT: k 'C' front facing SIDE SL (2E38CF, insertion on the pole at the row, lamp above it);
