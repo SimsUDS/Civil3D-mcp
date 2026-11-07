@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Several drawings open in one Civil 3D: `civil3d_drawing` `list_documents`
+  (every open drawing, which is active, the pinned one), `activate` (`drawing`:
+  full path, file name or a unique part such as a TD number; makes it the active
+  tab and pins this MCP session to it) and `unpin`. While pinned, every plugin
+  request carries `expectDrawing` and the plugin refuses it with
+  `CIVIL3D.CONFLICT`, changing nothing, if another tab is active when it runs.
+  Any request may also pass `expectDrawing` itself. New plugin methods
+  `listDocuments` and `activateDocument`; needs the rebuilt plugin loaded.
+
 - Two Civil 3D sessions at once: the plugin listens on 8080 and, when that is
   taken by another Civil 3D, on the next free port (8081, 8082, ... up to 8089).
   `CIVIL3D_MCP_PORT` (environment) sets the first port, and the `C3DMCPPORT`

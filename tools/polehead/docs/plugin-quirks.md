@@ -29,3 +29,7 @@ Read when something misbehaves, before a hand-built job with moves, mirrors or d
 ## Moves ignore mirrorX
 
 - A copy op with `mode: "move"` and `mirrorX` moves the entity but does not mirror it (seen in TD2486645). To mirror an existing entity, copy it with `mirrorX` (no mode) and erase the original in the same job.
+
+## Several job drawings open in one Civil 3D
+
+- The plugin works on the active tab only. With the document-switch build loaded, start each job with `civil3d_drawing` `action: "activate"`, `drawing: "<TD number>"` (it must match one open drawing), then check `info` shows that drawing. Activate pins the session: every later call is refused (`CIVIL3D.CONFLICT`, nothing changed) if another tab becomes active, so a tab clicked by hand mid-job cannot take the edits. Jobs still run one at a time (one queue); activate the next TD when the last one's report is done. Without that build, ask Kevin to click the tab and confirm with `info` before any apply.

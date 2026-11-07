@@ -11,6 +11,9 @@ public static class CivilExecution
 
   public static async Task<T> ExecuteAsync<T>(Func<Document, CivilDocument, Database, Transaction, T> action, bool write)
   {
+    // Read here: the command-context callback runs on AutoCAD's thread, where the request's AsyncLocal
+    // values do not flow (tested live: an expectDrawing read inside the callback was always empty).
+    var expected = PluginRuntime.GetExpectedDrawingIdentity();
     return await ExecuteSerializedAsync(async () =>
     {
       T? result = default;
@@ -21,15 +24,7 @@ public static class CivilExecution
         try
         {
           var doc = App.DocumentManager.MdiActiveDocument ?? throw new JsonRpcDispatchException("CIVIL3D.NO_DRAWING", "No active drawing is open in Civil 3D.");
-          var expectedDrawingIdentity = PluginRuntime.GetExpectedDrawingIdentity();
-          var activeDrawingIdentity = PluginRuntime.GetDrawingIdentity(doc);
-          if (!string.IsNullOrWhiteSpace(expectedDrawingIdentity) &&
-              !string.Equals(expectedDrawingIdentity, activeDrawingIdentity, StringComparison.OrdinalIgnoreCase))
-          {
-            throw new JsonRpcDispatchException(
-              "CIVIL3D.CONFLICT",
-              $"The active drawing changed from '{expectedDrawingIdentity}' to '{activeDrawingIdentity}' while the operation was queued. No drawing changes were made.");
-          }
+          EnsureExpectedDrawing(doc, expected);
           var civilDoc = CivilApplication.ActiveDocument ?? throw new JsonRpcDispatchException("CIVIL3D.NO_DRAWING", "No active Civil 3D document is available.");
           var database = doc.Database;
 
@@ -64,6 +59,7 @@ public static class CivilExecution
 
   public static async Task<T> ExecuteInCommandContextAsync<T>(Func<Task<T>> action)
   {
+    var expected = PluginRuntime.GetExpectedDrawingIdentity();   // see ExecuteAsync
     return await ExecuteSerializedAsync(async () =>
     {
       T? result = default;
@@ -73,6 +69,7 @@ public static class CivilExecution
       {
         try
         {
+          EnsureExpectedDrawing(App.DocumentManager.MdiActiveDocument, expected);
           result = await action();
         }
         catch (Exception ex)
@@ -88,6 +85,22 @@ public static class CivilExecution
 
       return result!;
     });
+  }
+
+  /// <summary>
+  /// Refuses the operation when the request is bound to a drawing (expectDrawing, or a background job's
+  /// drawing) and a different drawing is active now. Nothing has been changed when this throws.
+  /// </summary>
+  private static void EnsureExpectedDrawing(Document? doc, string? expected)
+  {
+    if (string.IsNullOrWhiteSpace(expected)) return;
+    var active = PluginRuntime.GetDrawingIdentity(doc);
+    if (!string.Equals(expected, active, StringComparison.OrdinalIgnoreCase))
+    {
+      throw new JsonRpcDispatchException(
+        "CIVIL3D.CONFLICT",
+        $"This request is for '{expected}' but the active drawing is '{active ?? "none"}'. No drawing changes were made. Switch with civil3d_drawing action=activate.");
+    }
   }
 
   public static Task<T> ReadAsync<T>(Func<Document, CivilDocument, Database, Transaction, T> action)
