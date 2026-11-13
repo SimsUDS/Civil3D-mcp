@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- `civil3d_office_survey` `build` block rotation: the reference now reads ARC
+  entities and follows LWPOLYLINE bulges (before, ARCs were skipped and bulges
+  read as chords, so blocks on curved CL / RW streets fell back to rotation 0).
+  New plan option `reference.fallback` (e.g. `{"layers": ["CURB"], "fallback":
+  ["CL"]}`): fallback layers are used only where no reference-layer line is
+  within 100 ft; the build reports how many rotations used them. The reference
+  query asks for LINE / LWPOLYLINE / ARC only and flags a truncated query or
+  polylines cut by the query vertex cap. `score` also follows bulges now.
+
 - Several drawings open in one Civil 3D: `civil3d_drawing` `list_documents`
   (every open drawing, which is active, the pinned one), `activate` (`drawing`:
   full path, file name or a unique part such as a TD number; makes it the active

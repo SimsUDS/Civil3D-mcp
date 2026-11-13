@@ -12,7 +12,9 @@
  * {
  *   version: 1,
  *   blockSource?: "C:\\civ3dmcp\\TOPO LW",         // a .dwg, or a folder of <block name>.dwg files
- *   reference?: { layers: ["CURB"] },            // rotation reference: drawing lines on these layers + plan strings on them
+ *   reference?: { layers: ["CURB"], fallback?: ["CL"] },  // rotation reference: drawing lines (LINE / LWPOLYLINE / ARC)
+ *                                                // on these layers + plan strings on them; fallback layers are used
+ *                                                // only where no reference line is within 100 ft
  *   strings?: [{ layer, pts: [Ref | {poc: Ref}], closed?, offset?, colorIndex?, id? }],
  *   inserts?: [{ block, at: Ref, layer, rotate?: number | "curb" | "curb+90" | "face-curb", rotateAdd?,
  *               scale?, dynamic?, attributes?, id? }],
@@ -235,22 +237,67 @@ export class LineIndex {
   }
 }
 
-export function segmentsFromVertices(vertices: XY[], closed = false): Segment[] {
-  const pts = closed && vertices.length > 2 ? [...vertices, vertices[0]] : vertices;
+/** Max chord length when arcs are split into segments for the rotation index and scoring. */
+export const ARC_STEP_FT = 5;
+
+/** Chords along a circular arc: center, radius, start angle and signed sweep (radians, + = CCW). */
+export function arcSegments(cx: number, cy: number, r: number, start: number, sweep: number, step = ARC_STEP_FT): Segment[] {
+  if (!(r > 0) || !Number.isFinite(r) || sweep === 0) return [];
+  const n = Math.min(512, Math.max(1, Math.ceil((Math.abs(sweep) * r) / step)));
   const out: Segment[] = [];
-  for (let i = 0; i + 1 < pts.length; i++) out.push([pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y]);
+  let px = cx + r * Math.cos(start);
+  let py = cy + r * Math.sin(start);
+  for (let k = 1; k <= n; k++) {
+    const a = start + (sweep * k) / n;
+    const x = cx + r * Math.cos(a);
+    const y = cy + r * Math.sin(a);
+    out.push([px, py, x, y]);
+    px = x;
+    py = y;
+  }
   return out;
 }
 
-/** Segments from a civil3d_entity query result (LINE and LWPOLYLINE; arcs read as chords). */
+/** Chords along a bulged polyline segment from a to b (bulge = tan(sweep/4), + = CCW). */
+export function bulgeSegments(a: XY, b: XY, bulge: number, step = ARC_STEP_FT): Segment[] {
+  const c = Math.hypot(b.x - a.x, b.y - a.y);
+  if (!bulge || c < 1e-9) return [[a.x, a.y, b.x, b.y]];
+  const sweep = 4 * Math.atan(bulge);
+  const r = (c * (1 + bulge * bulge)) / (4 * Math.abs(bulge));
+  const h = Math.sign(bulge) * (r - (Math.abs(bulge) * c) / 2); // center offset from the chord midpoint, to the left
+  const cx = (a.x + b.x) / 2 - ((b.y - a.y) / c) * h;
+  const cy = (a.y + b.y) / 2 + ((b.x - a.x) / c) * h;
+  const segs = arcSegments(cx, cy, r, Math.atan2(a.y - cy, a.x - cx), sweep, step);
+  if (segs.length) { // pin the ends to the exact vertices
+    segs[0][0] = a.x; segs[0][1] = a.y;
+    segs[segs.length - 1][2] = b.x; segs[segs.length - 1][3] = b.y;
+  }
+  return segs;
+}
+
+/** Segments of a polyline; bulged segments follow their arc. */
+export function segmentsFromVertices(vertices: Vertex[], closed = false): Segment[] {
+  const pts = closed && vertices.length > 2 ? [...vertices, vertices[0]] : vertices;
+  const out: Segment[] = [];
+  for (let i = 0; i + 1 < pts.length; i++) out.push(...bulgeSegments(pts[i], pts[i + 1], pts[i].bulge ?? 0));
+  return out;
+}
+
+/** Segments from a civil3d_entity query result: LINE, LWPOLYLINE (bulges followed) and ARC. */
 export function segmentsFromQuery(result: unknown, layers?: string[]): Segment[] {
   const wanted = layers ? new Set(layers.map((l) => l.toUpperCase())) : undefined;
   const entities = ((result as { entities?: unknown[] })?.entities ?? []) as Array<Record<string, any>>;
   const out: Segment[] = [];
   for (const e of entities) {
     if (wanted && !wanted.has(String(e.layer ?? "").toUpperCase())) continue;
-    if (Array.isArray(e.vertices) && String(e.type).toUpperCase().includes("POLYLINE")) {
+    const type = String(e.type).toUpperCase();
+    if (Array.isArray(e.vertices) && type.includes("POLYLINE")) {
       out.push(...segmentsFromVertices(e.vertices, Boolean(e.closed)));
+    } else if (type === "ARC" && e.center && Number.isFinite(e.radius)) {
+      const s = (Number(e.startAngleDeg) * Math.PI) / 180;
+      let sweep = ((Number(e.endAngleDeg) - Number(e.startAngleDeg)) * Math.PI) / 180;
+      if (sweep <= 0) sweep += 2 * Math.PI; // ARCs run CCW from start to end
+      out.push(...arcSegments(e.center.x, e.center.y, e.radius, s, sweep));
     } else if (e.start && e.end) {
       out.push([e.start.x, e.start.y, e.end.x, e.end.y]);
     }
@@ -266,7 +313,7 @@ export type StringItem = Ref | { poc: Ref };
 export interface Plan {
   version?: number;
   blockSource?: string;
-  reference?: { layers?: string[] };
+  reference?: { layers?: string[]; fallback?: string[] };
   strings?: Array<{ layer: string; pts: StringItem[]; closed?: boolean; offset?: number; colorIndex?: number; id?: string }>;
   inserts?: Array<{
     block: string; at: Ref; layer: string; rotate?: number | "curb" | "curb+90" | "face-curb"; rotateAdd?: number;
@@ -315,7 +362,12 @@ export function toRanges(numbers: number[]): string {
   return parts.join(",");
 }
 
-export function buildJob(plan: Plan, points: Map<number, SurveyPoint>, referenceSegments: Segment[] = []): BuildResult {
+export function buildJob(
+  plan: Plan,
+  points: Map<number, SurveyPoint>,
+  referenceSegments: Segment[] = [],
+  fallbackSegments: Segment[] = [],
+): BuildResult {
   const flags: string[] = [];
   const creates: Array<Record<string, unknown>> = [];
 
@@ -350,7 +402,9 @@ export function buildJob(plan: Plan, points: Map<number, SurveyPoint>, reference
 
   // Strings first, so strings on reference layers (the curb drawn in this same plan) steer rotations.
   const refLayers = new Set((plan.reference?.layers ?? ["CURB"]).map((l) => l.toUpperCase()));
+  const fbLayers = new Set((plan.reference?.fallback ?? []).map((l) => l.toUpperCase()));
   const segments = [...referenceSegments];
+  const fbSegments = [...fallbackSegments];
 
   plan.strings?.forEach((s, si) => {
     const where = `string ${s.id ?? si} (${s.layer})`;
@@ -391,13 +445,22 @@ export function buildJob(plan: Plan, points: Map<number, SurveyPoint>, reference
     creates.push({ type: "polyline", layer: s.layer, points: out, ...(s.closed ? { closed: true } : {}),
       ...(s.colorIndex !== undefined ? { colorIndex: s.colorIndex } : {}), ...(s.id ? { id: s.id } : {}) });
     if (refLayers.has(s.layer.toUpperCase())) segments.push(...segmentsFromVertices(out, s.closed));
+    else if (fbLayers.has(s.layer.toUpperCase())) fbSegments.push(...segmentsFromVertices(out, s.closed));
   });
 
+  // Reference first (e.g. CURB); fallback layers (e.g. CL) only where no reference line is within 100 ft.
   const index = new LineIndex(segments);
+  const fbIndex = fbSegments.length ? new LineIndex(fbSegments) : undefined;
+  let usedFallback = 0;
   const rotation = (rot: unknown, at: XY, where: string): number => {
     if (typeof rot === "number") return rot;
     if (rot === undefined) return 0;
-    const deg = rot === "face-curb" ? index.facingDeg(at) : index.directionDeg(at);
+    const pick = (ix: LineIndex) => (rot === "face-curb" ? ix.facingDeg(at) : ix.directionDeg(at));
+    let deg = pick(index);
+    if (deg === undefined && fbIndex) {
+      deg = pick(fbIndex);
+      if (deg !== undefined) usedFallback++;
+    }
     if (deg === undefined) {
       flags.push(`${where}: no reference line within 100 ft for rotate '${rot}', used 0`);
       return 0;
@@ -455,6 +518,7 @@ export function buildJob(plan: Plan, points: Map<number, SurveyPoint>, reference
     countsByLayer[String(c.layer)] = (countsByLayer[String(c.layer)] ?? 0) + 1;
     countsByType[String(c.type)] = (countsByType[String(c.type)] ?? 0) + 1;
   }
+  if (usedFallback) flags.push(`${usedFallback} rotations used the fallback layers (${[...fbLayers].join(", ")}): no reference line within 100 ft`);
   return { creates, flags, countsByLayer, countsByType };
 }
 

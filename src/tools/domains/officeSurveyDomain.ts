@@ -115,18 +115,30 @@ export const OFFICE_SURVEY_DOMAIN_DEFINITION: DomainToolDefinition = {
         const points = numbers.length ? await fetchPoints({ includeNumbers: toRanges(numbers) }) : new Map<number, SurveyPoint>();
 
         // Rotation reference: existing lines on the reference layers around the plan's points.
+        // Fallback layers (e.g. CL) are used only where no reference-layer line (e.g. CURB) is within 100 ft.
         let referenceSegments: Segment[] = [];
+        let fallbackSegments: Segment[] = [];
+        const referenceNotes: string[] = [];
         const layers = plan.reference?.layers ?? ["CURB"];
-        if (points.size && layers.length && (plan.inserts?.length || plan.texts?.length)) {
+        const fallback = plan.reference?.fallback ?? [];
+        const all = [...new Set([...layers, ...fallback])];
+        if (points.size && all.length && (plan.inserts?.length || plan.texts?.length)) {
           const xs = [...points.values()].map((p) => p.x);
           const ys = [...points.values()].map((p) => p.y);
           const pad = 150;
           const window = { minX: Math.min(...xs) - pad, minY: Math.min(...ys) - pad, maxX: Math.max(...xs) + pad, maxY: Math.max(...ys) + pad };
-          const query = await send("queryEntities", { layers, window, crossing: true, includeGeometry: true, limit: 5000 });
+          const query = await send("queryEntities", {
+            layers: all, types: ["LINE", "LWPOLYLINE", "ARC"], window, crossing: true, includeGeometry: true, limit: 5000,
+          });
           referenceSegments = segmentsFromQuery(query, layers);
+          fallbackSegments = segmentsFromQuery(query, fallback);
+          const q = query as { truncated?: boolean; entities?: Array<{ vertices?: unknown[]; vertexCount?: number }> };
+          if (q?.truncated) referenceNotes.push("reference query hit the 5000-entity limit: some reference lines were not read");
+          const cut = (q?.entities ?? []).filter((e) => Array.isArray(e.vertices) && (e.vertexCount ?? 0) > e.vertices.length).length;
+          if (cut) referenceNotes.push(`${cut} reference polylines came back with fewer vertices than vertexCount (query vertex cap)`);
         }
 
-        const result = buildJob(plan, points, referenceSegments);
+        const result = buildJob(plan, points, referenceSegments, fallbackSegments);
         const job = { version: 1, ...(plan.blockSource ? { blockSource: plan.blockSource } : {}), creates: result.creates };
         const jobFile = jsonPath(a.outFile, "outFile");
         writeFileSync(jobFile, JSON.stringify(job, null, 1), "utf8");
@@ -137,7 +149,8 @@ export const OFFICE_SURVEY_DOMAIN_DEFINITION: DomainToolDefinition = {
           countsByType: result.countsByType,
           pointsFound: points.size,
           referenceSegments: referenceSegments.length,
-          flags: result.flags,
+          fallbackSegments: fallbackSegments.length,
+          flags: [...referenceNotes, ...result.flags],
           next: "Run civil3d_entity action apply with this jobFile (one approval).",
         };
       },
@@ -169,11 +182,11 @@ export const OFFICE_SURVEY_DOMAIN_DEFINITION: DomainToolDefinition = {
       description:
         "Office survey (OS) engine for turning field COGO shots into linework and symbols. " +
         "points: parsed shots (code, distances, LO partner, resolved LO offset points; shots with a distance but no LO are flagged), inline or to outFile. " +
-        "build: resolve a plan that names point numbers into a civil3d_entity apply job file (outFile). Plan: {blockSource? (a .dwg, or a folder of <block name>.dwg files), reference?:{layers:[\"CURB\"]}, " +
+        "build: resolve a plan that names point numbers into a civil3d_entity apply job file (outFile). Plan: {blockSource? (a .dwg, or a folder of <block name>.dwg files), reference?:{layers:[\"CURB\"], fallback?:[\"CL\"]}, " +
         "strings:[{layer, pts:[ref | {poc: ref}], closed?, offset?}], inserts:[{block, at: ref, layer, rotate?: deg | \"curb\" | \"curb+90\" | \"face-curb\", rotateAdd?, scale?, dynamic?, attributes?}], " +
         "circles:[{at, radius, layer}], arcs:[{at, radius, startDeg, endDeg, layer}], texts:[{text, at, height, layer, rotate?, dx?, dy?}], flags:[{at, note}]}. " +
         "ref = point number | {pt, off?: k (k-th LO offset point)} | {pt, dx, dy} | {x, y}. {poc: ref} makes a 3-point arc (bulge) to the next vertex; R > 1000 ft is drawn as lines and flagged unless the POC is > 0.5 ft off the chord and R <= 5000. " +
-        "Rotation 'curb' = parallel to the nearest reference line (existing drawing lines plus plan strings on reference layers), 'face-curb' = pointing straight at it. " +
+        "Rotation 'curb' = parallel to the nearest reference line (existing LINE / LWPOLYLINE / ARC on reference layers, arcs followed, plus plan strings on them), 'face-curb' = pointing straight at it; where no reference line is within 100 ft, the fallback layers are used the same way. " +
         "Flags become a 5 ft circle + note on DISC-OTHER. Does not change the drawing; run civil3d_entity apply with the job file to draw it in one approval. " +
         "score: compare a job file's polylines on a layer with a civil3d_entity query outFile (a drafter's finished drawing), by length both ways.",
       inputShape: {
