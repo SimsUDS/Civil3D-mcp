@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Layer names that don't exist yet are now created instead of silently
+  replaced by the current layer (`LookupUtils.GetLayerId`). Before, a
+  `civil3d_entity` `edit` / `apply` with `layer` set to a missing layer moved
+  every object onto the current layer and still counted it as edited (seen on
+  a substation job: 1,332 objects meant for FENCE / ELECTRIC landed on
+  0-LEADER). The same lookup serves the AutoCAD create commands and the
+  alignment and profile create commands, which now create a named layer too.
+  An invalid layer name is refused with `CIVIL3D.INVALID_INPUT`. No name still
+  means the current layer. Needs the rebuilt plugin loaded.
+
 - `civil3d_office_survey` `build` block rotation: the reference now reads ARC
   entities and follows LWPOLYLINE bulges (before, ARCs were skipped and bulges
   read as chords, so blocks on curved CL / RW streets fell back to rotation 0).

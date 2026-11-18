@@ -7,6 +7,12 @@ namespace Civil3DMcpPlugin;
 
 public static class LookupUtils
 {
+  /// <summary>
+  /// The layer to put an object on. No name means the current layer. A named layer
+  /// that does not exist yet is created (an invalid name is refused), never swapped
+  /// for the current layer: that fallback used to move objects onto whatever layer
+  /// was current while the edit still reported success.
+  /// </summary>
   public static ObjectId GetLayerId(Database database, Transaction transaction, string? layerName)
   {
     if (string.IsNullOrWhiteSpace(layerName))
@@ -14,13 +20,7 @@ public static class LookupUtils
       return database.Clayer;
     }
 
-    var layerTable = CivilObjectUtils.GetRequiredObject<LayerTable>(transaction, database.LayerTableId, OpenMode.ForRead);
-    if (layerTable.Has(layerName))
-    {
-      return layerTable[layerName];
-    }
-
-    return database.Clayer;
+    return AcadCommands.EnsureLayer(database, transaction, layerName.Trim());
   }
 
   public static ObjectId GetSiteId(CivilDocument civilDoc, Transaction transaction, string? siteName)
