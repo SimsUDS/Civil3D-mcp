@@ -87,12 +87,15 @@ public static partial class EntityCommands
         transaction.AddNewlyCreatedDBObject(entity, true);
 
         List<string>? pieces = null;
+        List<string>? texts = null;
         if (entity is BlockReference blockRef)
         {
           FinishInsert(blockRef, item, transaction, index, warnings);
-          if (item["explode"]?.GetValue<bool>() == true)
+          var burst = item["burst"]?.GetValue<bool>() == true;
+          if (burst || item["explode"]?.GetValue<bool>() == true)
           {
-            pieces = ExplodeInsert(blockRef, item, space.Record, transaction, index, warnings);
+            var clip = item["clipLength"]?.GetValue<double>();
+            (pieces, texts) = ExplodeInsert(blockRef, clip, burst, space.Record, database, transaction, $"Create {index}", warnings);
           }
         }
 
@@ -107,6 +110,11 @@ public static partial class EntityCommands
         if (pieces is not null)
         {
           entry["pieceHandles"] = pieces;
+        }
+
+        if (texts is not null)
+        {
+          entry["textHandles"] = texts;
         }
 
         created.Add(entry);
@@ -204,20 +212,40 @@ public static partial class EntityCommands
   }
 
   /// <summary>
-  /// Explodes a just-inserted block into its pieces (like EXPLODE; attribute
+  /// Explodes a block reference into its pieces (like EXPLODE; attribute
   /// definitions are dropped). Pieces on layer 0 take the insert's layer and
-  /// ByBlock color becomes ByLayer, like BURST. With clipLength, every piece is
+  /// ByBlock color becomes ByLayer, like BURST. With burst, each visible,
+  /// non-empty attribute also becomes TEXT (MTEXT for a multiline attribute)
+  /// with its value, position, justification, height, rotation, width factor,
+  /// style and layer, like Express Tools BURST. With clipLength, every piece is
   /// trimmed at that distance from the insertion point along the insert's
   /// rotation: lines and straight polyline segments are cut there, other pieces
-  /// whose middle lies past it are dropped. The reference itself is erased.
+  /// whose middle lies past it are dropped (attribute text is never clipped).
+  /// The reference itself is erased. Returns the piece handles (text included)
+  /// and, separately, the text handles.
   /// </summary>
-  private static List<string> ExplodeInsert(
-    BlockReference blockRef, JsonObject item, BlockTableRecord space, Transaction transaction, int index, List<string> warnings)
+  private static (List<string> Pieces, List<string> Texts) ExplodeInsert(
+    BlockReference blockRef, double? clip, bool burst, BlockTableRecord space, Database database,
+    Transaction transaction, string label, List<string> warnings)
   {
-    double? clip = item["clipLength"]?.GetValue<double>();
     if (clip is <= 0)
     {
-      throw new JsonRpcDispatchException("CIVIL3D.INVALID_INPUT", $"Create {index}: clipLength must be positive.");
+      throw new JsonRpcDispatchException("CIVIL3D.INVALID_INPUT", $"{label}: clipLength must be positive.");
+    }
+
+    // Attribute references are not part of Explode's output; read them first.
+    var texts = new List<string>();
+    var attributeTexts = new List<Entity>();
+    if (burst)
+    {
+      foreach (ObjectId attId in blockRef.AttributeCollection)
+      {
+        if (transaction.GetObject(attId, OpenMode.ForRead) is AttributeReference attRef
+          && AttributeToText(attRef, blockRef) is Entity text)
+        {
+          attributeTexts.Add(text);
+        }
+      }
     }
 
     var origin = blockRef.Position;
@@ -262,13 +290,141 @@ public static partial class EntityCommands
       }
     }
 
+    foreach (var text in attributeTexts)
+    {
+      space.AppendEntity(text);
+      transaction.AddNewlyCreatedDBObject(text, true);
+      if (text is DBText dbText && !(dbText.HorizontalMode == TextHorizontalMode.TextLeft && dbText.VerticalMode == TextVerticalMode.TextBase))
+      {
+        // Justified text keeps its alignment point; let AutoCAD recompute the position from it.
+        dbText.AdjustAlignment(database);
+      }
+
+      handles.Add(text.Handle.ToString());
+      texts.Add(text.Handle.ToString());
+    }
+
+    if (!blockRef.IsWriteEnabled)
+    {
+      blockRef.UpgradeOpen();
+    }
+
     blockRef.Erase();
     if (cutArcs)
     {
-      warnings.Add($"Create {index}: clipLength cut through a polyline arc segment; that segment was ended with a straight line.");
+      warnings.Add($"{label}: clipLength cut through a polyline arc segment; that segment was ended with a straight line.");
     }
 
-    return handles;
+    return (handles, texts);
+  }
+
+  /// <summary>
+  /// BURST's attribute rule: a visible attribute with a value becomes TEXT (or
+  /// MTEXT when it is a multiline attribute) carrying the attribute's value and
+  /// look. Invisible or empty attributes are dropped. Layer 0 takes the insert's
+  /// layer and ByBlock color becomes ByLayer, the same as the exploded pieces.
+  /// </summary>
+  private static Entity? AttributeToText(AttributeReference att, BlockReference blockRef)
+  {
+    if (att.Invisible || string.IsNullOrWhiteSpace(att.TextString))
+    {
+      return null;
+    }
+
+    Entity text;
+    if (att.IsMTextAttribute)
+    {
+      var mtext = (MText)att.MTextAttribute.Clone();
+      mtext.SetPropertiesFrom(att);
+      text = mtext;
+    }
+    else
+    {
+      var dbText = new DBText();
+      dbText.SetPropertiesFrom(att);
+      dbText.TextString = att.TextString;
+      dbText.TextStyleId = att.TextStyleId;
+      dbText.Height = att.Height;
+      dbText.WidthFactor = att.WidthFactor;
+      dbText.Oblique = att.Oblique;
+      dbText.Rotation = att.Rotation;
+      dbText.Normal = att.Normal;
+      dbText.Thickness = att.Thickness;
+      dbText.IsMirroredInX = att.IsMirroredInX;
+      dbText.IsMirroredInY = att.IsMirroredInY;
+      dbText.HorizontalMode = att.HorizontalMode;
+      dbText.VerticalMode = att.VerticalMode;
+      dbText.Position = att.Position;
+      if (!(att.HorizontalMode == TextHorizontalMode.TextLeft && att.VerticalMode == TextVerticalMode.TextBase))
+      {
+        dbText.AlignmentPoint = att.AlignmentPoint;
+      }
+
+      text = dbText;
+    }
+
+    if (string.Equals(att.Layer, "0", StringComparison.OrdinalIgnoreCase))
+    {
+      text.LayerId = blockRef.LayerId;
+    }
+
+    if (text.ColorIndex == 0)
+    {
+      text.ColorIndex = 256;
+    }
+
+    return text;
+  }
+
+  /// <summary>
+  /// burstEntities: BURST block references already in the drawing, by handle.
+  /// Each becomes its pieces plus one TEXT per visible attribute (see
+  /// ExplodeInsert). Non-block handles are refused before anything changes.
+  /// </summary>
+  public static Task<object?> BurstEntitiesAsync(JsonObject? parameters)
+  {
+    var handles = ReadStringList(PluginRuntime.GetParameter(parameters, "handles") as JsonNode);
+    if (handles.Count == 0)
+    {
+      throw new JsonRpcDispatchException("CIVIL3D.INVALID_INPUT", "burstEntities requires a non-empty handles array.");
+    }
+
+    return CivilExecution.WriteAsync<object?>((doc, civilDoc, database, transaction) =>
+    {
+      var refs = new List<(string Handle, BlockReference Ref)>();
+      foreach (var handle in handles)
+      {
+        if (transaction.GetObject(GetIdFromHandle(database, handle), OpenMode.ForWrite) is not BlockReference blockRef)
+        {
+          throw new JsonRpcDispatchException("CIVIL3D.INVALID_INPUT", $"burstEntities: {handle} is not a block reference.");
+        }
+
+        refs.Add((handle, blockRef));
+      }
+
+      var results = new List<Dictionary<string, object?>>();
+      var warnings = new List<string>();
+      var progress = new DrawProgress(doc, "burst", refs.Count);
+      foreach (var (handle, blockRef) in refs)
+      {
+        progress.BeforePiece(results.Count);
+        var space = (BlockTableRecord)transaction.GetObject(blockRef.OwnerId, OpenMode.ForWrite);
+        var (pieces, texts) = ExplodeInsert(blockRef, null, true, space, database, transaction, $"Burst {handle}", warnings);
+        results.Add(new Dictionary<string, object?>
+        {
+          ["handle"] = handle,
+          ["pieceHandles"] = pieces,
+          ["textHandles"] = texts,
+        });
+      }
+
+      return new Dictionary<string, object?>
+      {
+        ["burst"] = results,
+        ["count"] = results.Count,
+        ["warnings"] = warnings,
+      };
+    });
   }
 
   private static Entity? ClipPiece(Entity piece, Func<Point3d, double> x, double length, ref bool cutArcs)

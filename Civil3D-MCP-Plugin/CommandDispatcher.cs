@@ -42,6 +42,7 @@ public static class CommandDispatcher
       "copyEntities" => EntityCommands.CopyEntitiesAsync(parameters),
       "editEntities" => EntityCommands.EditEntitiesAsync(parameters),
       "eraseEntities" => EntityCommands.EraseEntitiesAsync(parameters),
+      "burstEntities" => EntityCommands.BurstEntitiesAsync(parameters),
       "createHatches" => EntityCommands.CreateHatchesAsync(parameters),
       "createEntities" => EntityCommands.CreateEntitiesAsync(parameters),
       "listCivilObjectTypes" => DrawingCommands.ListCivilObjectTypesAsync(),

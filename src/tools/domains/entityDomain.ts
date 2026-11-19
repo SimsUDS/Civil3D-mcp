@@ -79,7 +79,8 @@ const CreateSchema = z.object({
   rotationDeg: z.number().optional().describe("insert / text: rotation in degrees CCW."),
   scale: z.number().positive().optional().describe("insert: uniform scale (default 1)."),
   explode: z.boolean().optional().describe("insert: explode the block into its pieces right after inserting it (pieces on layer 0 go to the insert's layer). The result lists the piece handles."),
-  clipLength: z.number().positive().optional().describe("insert with explode: trim the pieces at this distance from the insertion point along the insert's rotation (e.g. a GUY block inserted at the anchor and aimed at the pole, clipped at the pole center). Lines and straight polyline segments are cut; other pieces past it are dropped."),
+  burst: z.boolean().optional().describe("insert: BURST the block right after inserting it: explode it and turn each visible, non-empty attribute into TEXT (MTEXT for multiline attributes) with its value, position, justification, height, rotation, style and layer. The result lists pieceHandles (text included) and textHandles."),
+  clipLength: z.number().positive().optional().describe("insert with explode or burst: trim the pieces at this distance from the insertion point along the insert's rotation (e.g. a GUY block inserted at the anchor and aimed at the pole, clipped at the pole center). Lines and straight polyline segments are cut; other pieces past it are dropped."),
   dynamicProperties: z.record(z.string(), z.union([z.string(), z.number()])).optional().describe("insert: dynamic block properties by name (visibility state, distance, angle in radians)."),
   attributes: z.record(z.string(), z.string()).optional().describe("insert: attribute values by tag."),
   points: z.array(z.object({ x: z.number(), y: z.number(), bulge: z.number().optional() })).min(2).optional()
@@ -115,6 +116,7 @@ const CreateArgs = z.object({
 const CopyArgs = z.object({ action: z.literal("copy"), operations: z.array(CopyOperationSchema).min(1) });
 const EditArgs = z.object({ action: z.literal("edit"), edits: z.array(EditSchema).min(1) });
 const EraseArgs = z.object({ action: z.literal("erase"), handles: z.array(HandleSchema).min(1) });
+const BurstArgs = z.object({ action: z.literal("burst"), handles: z.array(HandleSchema).min(1) });
 const HatchArgs = z.object({ action: z.literal("hatch"), hatches: z.array(HatchSchema).min(1) });
 const ApplyArgs = z.object({
   action: z.literal("apply"),
@@ -203,6 +205,16 @@ export const ENTITY_DOMAIN_DEFINITION: DomainToolDefinition = {
       pluginMethods: ["eraseEntities"],
       execute: async (args) => await send("eraseEntities", { handles: (args as z.infer<typeof EraseArgs>).handles }),
     },
+    burst: {
+      action: "burst",
+      inputSchema: BurstArgs,
+      responseSchema: GenericResponseSchema,
+      capabilities: ["create", "delete"],
+      requiresActiveDrawing: true,
+      safeForRetry: false,
+      pluginMethods: ["burstEntities"],
+      execute: async (args) => await send("burstEntities", { handles: (args as z.infer<typeof BurstArgs>).handles }),
+    },
     hatch: {
       action: "hatch",
       inputSchema: HatchArgs,
@@ -256,11 +268,12 @@ export const ENTITY_DOMAIN_DEFINITION: DomainToolDefinition = {
         "copy: batch copy or move entities by handles and/or window with a dx/dy offset and optional mirror; returns old-to-new handle maps. " +
         "edit: batch change text, attribute values, vertices/endpoints, circle/arc center, radius and arc angles, dimension points, color, linetype or layer by handle. " +
         "erase: delete entities by handle. " +
+        "burst: BURST block references by handle, like Express Tools BURST: the pieces stay and each visible attribute becomes TEXT with its value; returns piece and text handles per block (create also takes burst: true per insert). " +
         "hatch: create hatches like HATCH > Select objects (closed polylines/circles, associative) or from vertex loops, matching an existing hatch's pattern, scale and angle via 'like'. " +
         "apply: run a whole job (creates, copies, then edits, hatches and erases that may reference the new copies as \"<copyId>:<sourceHandle>\") from a JSON file in one call; " +
         "approval binds to the file hash, so the request stays tiny. Batch copy and edit work so one approval covers a whole detail.",
       inputShape: {
-        action: z.enum(["query", "create", "copy", "edit", "erase", "hatch", "apply"]),
+        action: z.enum(["query", "create", "copy", "edit", "erase", "burst", "hatch", "apply"]),
         space: SpaceSchema.optional(),
         window: WindowSchema.optional(),
         crossing: z.boolean().optional(),
@@ -273,13 +286,13 @@ export const ENTITY_DOMAIN_DEFINITION: DomainToolDefinition = {
         blockSource: z.string().min(1).optional().describe("create: absolute path of a .dwg holding the block definitions, or of a folder of one-block drawings named <block name>.dwg (e.g. C:\\civ3dmcp\\TOPO LW). Must be inside the configured import roots."),
         operations: z.array(CopyOperationSchema).optional(),
         edits: z.array(EditSchema).optional(),
-        handles: z.array(HandleSchema).optional(),
+        handles: z.array(HandleSchema).optional().describe("erase / burst: entities by handle."),
         hatches: z.array(HatchSchema).optional().describe("hatch: hatches to create."),
         jobFile: z.string().min(1).optional().describe(JobFileDescription),
         job: z.record(z.unknown()).optional().describe("apply: inline job object (same format as jobFile) for small jobs."),
         includeHandleMap: z.boolean().optional().describe("apply: also return the full old-to-new handle map inline."),
       },
-      supportedActions: ["query", "create", "copy", "edit", "erase", "hatch", "apply"],
+      supportedActions: ["query", "create", "copy", "edit", "erase", "burst", "hatch", "apply"],
       resolveAction: (rawArgs) => ({ action: String(rawArgs.action ?? ""), args: rawArgs }),
     },
   ],
