@@ -70,6 +70,18 @@ Read the report and summarize it for Kevin: counts, and the flagged rows grouped
 
 `civil3d_request_approval` for `civil3d_entity apply` with `jobFile` set to the job file, then run `apply` with the token. Approval is bound to the file's hash, so don't edit the file between the two calls. One job places everything.
 
+### 5b. Re-solve the leaders together
+
+The first pass places callouts one at a time, so later ones can only dodge earlier ones. After placing, query the station blocks into `placed.json` (step 6 query) and run the joint re-solve. It adjusts SEG-1 / SEG-2 on the placed blocks with every callout free to move, and ignores NO-PLOT text:
+
+```
+python repair.py "<data folder>" "<data folder>\placed.json"
+```
+
+Apply `stationing_repair.json` (an edit job, same approval flow), then read back again. `stationing_repair_report.csv` lists what still conflicts, worst first.
+
+On TD2573793 it moved 153 of 366 callouts and cut the conflict score about 9%. What's left is mostly geometry a straight leader can't fix: two callouts side by side pointing the same way (an SL and its pull box a few feet apart), or text that has to move sideways around a building. Those need a bent leader. Kevin drags those himself before bursting, so leave them flagged and don't burst.
+
 ### 6. Read back and report
 
 Query `layers: ["ELECTRIC-TEXT"], types: ["INSERT"]` into a file and check:

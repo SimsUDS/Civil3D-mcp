@@ -14,6 +14,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 FILES = {
     'power-stationing/SKILL.md': os.path.join(HERE, 'docs', 'SKILL.md'),
     'power-stationing/scripts/stationing.py': os.path.join(HERE, 'stationing.py'),
+    'power-stationing/scripts/repair.py': os.path.join(HERE, 'repair.py'),
     'power-stationing/references/block-behavior.md': os.path.join(HERE, 'docs', 'block-behavior.md'),
 }
 
