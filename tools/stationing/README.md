@@ -3,7 +3,8 @@
 Computes and places station labels on overhead (OH) and underground (UG) power jobs from drawing data. The skill instructions are in `docs/SKILL.md`; the block quirks are in `docs/block-behavior.md`.
 
 - `stationing.py` reads the saved queries in a data folder and writes one `civil3d_entity` apply job plus a review CSV. Modes: `missing` (default), `fill` (XX+XX), `all`.
-- `repair.py` re-solves SEG-1 / SEG-2 on placed blocks jointly (edit job + CSV of what still conflicts); no bursting.
+- `repair.py` re-solves the leaders of placed blocks jointly (edit job + CSV of what still overlaps); `--bends` adds measured bent shapes with square text, which needs FLIP (RO)'s value set removed from the block definitions. No bursting.
+- `data/` holds the bend tables measured on TD2573793 (120 shapes per block).
 - `test_stationing.py` holds unit tests (`python -m unittest discover -s tools/stationing`).
 - `package_skill.py` builds `power-stationing.zip` for upload to claude.ai (Settings → Capabilities → Skills).
 

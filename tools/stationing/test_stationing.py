@@ -61,5 +61,25 @@ class StationingTest(unittest.TestCase):
         self.assertEqual([p['d'] for p in pts], ['PP 1044317E PER FIM', 'SL NT'])
 
 
+class BendTableTest(unittest.TestCase):
+    def test_tables_cover_both_blocks_and_match_the_checked_shape(self):
+        import repair
+        bends = repair.load_bends()
+        self.assertEqual(set(bends), {'DYN STATION', 'DYN STATION (FLIPPED)'})
+        for blk, tab in bends.items():
+            self.assertEqual(len(tab), 120, blk)
+            r = tab[(13, 13, -60)]                     # checked by burst: text square at these values
+            self.assertAlmostEqual(r['ro'], 51.68, places=1)
+            self.assertAlmostEqual(r['grip'], -r['tilt'], places=3)
+
+    def test_bends_mirror_left_and_right(self):
+        import repair
+        tab = repair.load_bends()['DYN STATION']
+        for (s1, s2, b), r in tab.items():
+            m = tab[(s1, s2, -b)]
+            self.assertAlmostEqual(r['ro'] - 90, -(m['ro'] - 90), places=2)
+            self.assertAlmostEqual(r['shelf'][1], -m['shelf'][1], places=2)
+
+
 if __name__ == '__main__':
     unittest.main()

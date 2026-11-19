@@ -16,6 +16,9 @@ FILES = {
     'power-stationing/scripts/stationing.py': os.path.join(HERE, 'stationing.py'),
     'power-stationing/scripts/repair.py': os.path.join(HERE, 'repair.py'),
     'power-stationing/references/block-behavior.md': os.path.join(HERE, 'docs', 'block-behavior.md'),
+    # repair.py looks for the bend tables in data/ next to itself
+    'power-stationing/scripts/data/bend_table_dyn_station.json': os.path.join(HERE, 'data', 'bend_table_dyn_station.json'),
+    'power-stationing/scripts/data/bend_table_dyn_station_flipped.json': os.path.join(HERE, 'data', 'bend_table_dyn_station_flipped.json'),
 }
 
 

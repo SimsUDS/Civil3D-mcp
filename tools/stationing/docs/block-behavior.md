@@ -10,7 +10,7 @@ All values are in drawing feet at insert scale 1.3333. "Block frame" means a blo
 | SEG-2 | Second piece. **Above about 21 ft (flips between 20 and 22) the text jumps to the other side of the shelf, upside down**, on both blocks. Keep it at 20 or less. |
 | SEG-2 (ANG) | Bends piece 2. It also tilts piece 1 and the shelf by about -0.22 x the bend (15° → 3.4°, 30° → 6.6°, 45° → 9.7°, 60° → 12.4°). A rotation grip of the opposite tilt squares the leader again, but **the text does not follow**: it turned about 38° in the trial. |
 | SEG-3 | The shelf under the text. Drafters use 18 for SL/HH and 20-22 for poles. The text can run longer than the shelf: "ID TAG NFIF" is 24.5 ft. |
-| FLIP (RO) | Text turn. The plugin only accepts 1.5708 (90°, normal) or 4.7124 (270°, upside down on the other side). The in-between values on drafted blocks come from grip drags only, so bent leaders with straight text can't be made through the plugin. Tested 2026-11-19 with a plugin build that skipped its own check: AutoCAD accepted 1.3, 0.9 and 0.5 without an error but snapped every one back to 1.5708 (same anonymous block, same extents). The limit is AutoCAD's, not the plugin's. |
+| FLIP (RO) | Text turn, 1:1 (change it 30° and the text turns 30°). **In the stock block definitions its value set is a list of 90° / 270°**, so AutoCAD snaps any other value back, by grip or by code (tested 2026-11-19: 1.3, 0.9 and 0.5 radians were accepted silently and snapped to 1.5708). Kevin set the value set to **None** in both DYN STATION and DYN STATION (FLIPPED) on TD2573793 (the grip was no use to drafters anyway); after that any angle sticks, and bent leaders can have square text. Check a drawing before bending: create a test block with FLIP (RO) = 1.0472 and read it back. If it comes back 1.5708, the definition still has the list. |
 | ROTATE PERP CL / Angle1 | Rotation grip on the whole leader. Radians, counterclockwise. |
 | FLIP (MIR) / FLIP (MI) | Mirror; 1 slides the text back so it ends at the shelf end. |
 | SEG-1 large | SEG-1 more than about SEG-1 + SEG-2 of the default folds the leader back on itself. Stay at 13 or less. |
@@ -18,6 +18,16 @@ All values are in drawing feet at insert scale 1.3333. "Block frame" means a blo
 DYN STATION and DYN STATION (FLIPPED) differ only in which side of the shelf the text hangs on. FLIPPED at rotation 0 reads upside down, and reads upright at its usual 180-270°.
 
 On drafted blocks, about 260 of 370 have SEG-2, the bend, FLIP (RO) and the rotation all changed together. That's the signature of one grip drag on the text end.
+
+## Bent leaders with square text (needs FLIP (RO) value set = None)
+
+- The rotation grip turns the whole callout as one rigid piece, leader and text together.
+- A bend tilts piece 1 and the shelf by the same amount t, and leaves the text at T, both measured with the grip at 0 and FLIP (RO) at 90°.
+- Square text on a level shelf comes from **grip = -t** and **FLIP (RO) = 90° - (T - t)**. The text then sits on the shelf exactly like a straight block.
+- t and T depend on SEG-1, SEG-2 and the bend, so they're measured rather than modelled. `data/bend_table_dyn_station.json` and `data/bend_table_dyn_station_flipped.json` hold 120 shapes each (SEG-1 4/8/13, SEG-2 4/8/13/18, bend ±15° to ±75°): grip, FLIP (RO), and the shelf start in the block frame once squared. Both blocks share FLIP (RO); their shelf tilt differs by under 1°. Left and right bends are exact mirrors.
+- Set the properties in one edit, in this order: SEG-1, SEG-2, SEG-2 (ANG), SEG-3, FLIP (RO), then the grip. That matches how the tables were measured.
+- Verified by bursting check copies in empty space: text at 0° (180° for FLIPPED at rotation 0, which is upright in use). On the job, 131 of 142 bent blocks matched the model's outline within 1 ft, and the worst was 1.7 ft.
+- To measure a shape not in the table: insert at rotation 0 with grip 0 and FLIP (RO) 90°, burst a copy in empty space, read the shelf angle from the polyline and the text rotation, then erase.
 
 ## Text layout (from a burst, block frame, DYN STATION)
 

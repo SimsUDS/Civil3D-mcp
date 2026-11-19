@@ -72,15 +72,21 @@ Read the report and summarize it for Kevin: counts, and the flagged rows grouped
 
 ### 5b. Re-solve the leaders together
 
-The first pass places callouts one at a time, so later ones can only dodge earlier ones. After placing, query the station blocks into `placed.json` (step 6 query) and run the joint re-solve. It adjusts SEG-1 / SEG-2 on the placed blocks with every callout free to move, and ignores NO-PLOT text:
+The first pass places callouts one at a time, so later ones can only dodge earlier ones. After placing, query the station blocks into `placed.json` (step 6 query) and run the joint re-solve. It adjusts the leaders on the placed blocks with every callout free to move, and ignores NO-PLOT text:
 
 ```
-python repair.py "<data folder>" "<data folder>\placed.json"
+python repair.py "<data folder>" "<data folder>\placed.json" --bends
 ```
+
+`--bends` adds bent leaders: a sideways step with the text kept square, from the measured shapes in `data/`. It only works where FLIP (RO)'s value set was set to None in both DYN STATION definitions. Check first: create a test block with FLIP (RO) = 1.0472 in empty space and read it back. If it comes back 1.5708, the drawing still has the stock definition. Then run without `--bends` and tell Kevin, since it's his call to edit the definition. See `references/block-behavior.md`.
 
 Apply `stationing_repair.json` (an edit job, same approval flow), then read back again. `stationing_repair_report.csv` lists what still conflicts, worst first.
 
-On TD2573793 it moved 153 of 366 callouts and cut the conflict score about 9%. What's left is mostly geometry a straight leader can't fix: two callouts side by side pointing the same way (an SL and its pull box a few feet apart), or text that has to move sideways around a building. Those need a bent leader. Kevin drags those himself before bursting, so leave them flagged and don't burst.
+On TD2573793:
+- Straight only: it moved 153 of 366 callouts and cut the conflict score about 9%.
+- With bends: 142 more callouts bent, the score fell 71% (5,108 to 1,469), and 277 of 366 came out fully clear. Station-on-station text overlaps dropped from 54 to 10.
+
+What's left (about 90 callouts, mostly touching a building, APN text or dimension text) goes to Kevin's cleanup. Don't burst; he does that after cleanup.
 
 ### 6. Read back and report
 
@@ -128,14 +134,15 @@ No survey point under an underground item (handhole, pull box, vault) means LINE
 
 When nothing clears, it takes the least-bad option and flags it.
 
-Why straight only: a bent leader turns the text, and FLIP (RO), the setting that straightens it, can only be set by dragging grips. See `references/block-behavior.md`.
+The first pass uses straight leaders only. Bends come in at step 5b, where every callout can move at once.
 
 ## Open questions (flag these, don't decide them)
 
 - Records-only IDs: poles with no survey point, and vault or pull box IDs and sizes from the grid maps.
 - The NFIF underground rule.
 - Intersections where the feature sits in the corner area between two streets.
-- Placements that only clear with a bent leader. Kevin either drags those himself, or they get bent after he bursts.
+- Callouts that still touch something after the bent re-solve. They're Kevin's cleanup, done on the live blocks before he bursts.
+- Drawings whose DYN STATION definitions still have the stock FLIP (RO) value set (90/270): bends need Kevin's definition edit first.
 
 ## When things look wrong
 
