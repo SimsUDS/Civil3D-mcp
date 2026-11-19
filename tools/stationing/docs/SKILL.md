@@ -110,7 +110,7 @@ These came from Kevin's corrections on TD2573793. Explain them when a result loo
 2. **Access.** Use the street you'd reach the lot from. The perpendicular that crosses the fewest PL lines wins. A back-lot pole 111 ft from Lemon was stationed off E Truslow, 128 ft away, because the lot has no access from Lemon.
 3. **Nearest.** This includes alley mouths: a pole 4 ft off the alley CL is stationed on the alley, not on the cross street 22 ft away. Kevin corrected 2281394E and 2286251E this way.
 
-**Block and rotation.** Rotation is the direction pointing away from the CL, from the CL to the feature. Use `DYN STATION` when that's roughly east or north (315° to 135°), and `DYN STATION (FLIPPED)` when it's west or south. This keeps the text reading upright.
+**Block and rotation.** The two straight pieces of the leader, the first line out from the feature and the shelf the text sits on, must be perpendicular to the CL. Only the middle piece may bend. Rotation is the direction pointing away from the CL, from the CL to the feature. Use `DYN STATION` when that's roughly east or north (315° to 135°), and `DYN STATION (FLIPPED)` when it's west or south. This keeps the text reading upright.
 
 **Text.** IDs come only from survey descriptions:
 

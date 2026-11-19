@@ -26,6 +26,7 @@ On drafted blocks, about 260 of 370 have SEG-2, the bend, FLIP (RO) and the rota
 - Square text on a level shelf comes from **grip = -t** and **FLIP (RO) = 90° - (T - t)**. The text then sits on the shelf exactly like a straight block.
 - t and T depend on SEG-1, SEG-2 and the bend, so they're measured rather than modelled. `data/bend_table_dyn_station.json` and `data/bend_table_dyn_station_flipped.json` hold 120 shapes each (SEG-1 4/8/13, SEG-2 4/8/13/18, bend ±15° to ±75°): grip, FLIP (RO), and the shelf start in the block frame once squared. Both blocks share FLIP (RO); their shelf tilt differs by under 1°. Left and right bends are exact mirrors.
 - Set the properties in one edit, in this order: SEG-1, SEG-2, SEG-2 (ANG), SEG-3, FLIP (RO), then the grip. That matches how the tables were measured.
+- **Keep SEG-3 (the shelf) at 18 on a bent leader.** The tables were measured at 18. A longer shelf tilts the whole callout on a bend: 22 ft by 1.7°, 26 ft by 3.2°. Piece 1 and the shelf then aren't perpendicular to the CL anymore, which Kevin caught on 117+74. Straight leaders don't tilt with SEG-3.
 - Verified by bursting check copies in empty space: text at 0° (180° for FLIPPED at rotation 0, which is upright in use). On the job, 131 of 142 bent blocks matched the model's outline within 1 ft, and the worst was 1.7 ft.
 - To measure a shape not in the table: insert at rotation 0 with grip 0 and FLIP (RO) 90°, burst a copy in empty space, read the shelf angle from the polyline and the text rotation, then erase.
 

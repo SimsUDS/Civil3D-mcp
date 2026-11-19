@@ -32,6 +32,10 @@ import stationing as st  # noqa: E402
 WEIGHT = {'stext': 10, 'sleader': 6, 'bldg': 5, 'text': 4, 'dim': 3, 'block': 2}
 S1_OPTIONS = (13, 11, 9, 7, 5, 3)
 BEND_PENALTY = 0.5       # prefer a straight leader when it clears just as well
+# The bend tables were measured with an 18 ft shelf. On a bent leader the shelf length tilts the whole
+# callout (22 ft: 1.7 deg, 26 ft: 3.2 deg), which breaks the rule that piece 1 and the shelf are
+# perpendicular to the CL, so every bent callout gets this shelf. Straight leaders don't tilt.
+BENT_SHELF = 18
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 BEND_TABLES = {'DYN STATION': 'bend_table_dyn_station.json', 'DYN STATION (FLIPPED)': 'bend_table_dyn_station_flipped.json'}
 
@@ -133,7 +137,7 @@ def main(argv=None):
             lo, hi = (sy + b, sy + b + st.TEXT_H) if not c['flipped'] else (sy - b - st.TEXT_H, sy - b)
             x0 = sx + st.XOFF; x1 = x0 + st.CHAR_W * len(t)
             rects.append(to_world(c, [(x0, lo), (x1, lo), (x1, hi), (x0, hi)]))
-        v = to_world(c, [(st.GAP, 0), (st.GAP + s1, 0), (sx, sy), (sx + c['s3'], sy)])
+        v = to_world(c, [(st.GAP, 0), (st.GAP + s1, 0), (sx, sy), (sx + BENT_SHELF, sy)])
         return rects, [seg_rect(p, q) for p, q in zip(v, v[1:])]
 
     def options(c):
@@ -211,7 +215,7 @@ def main(argv=None):
                 grip, ro = 0.0, st.HALF_PI
             # same property order as the measurement runs: lengths, bend, shelf, FLIP (RO), grip
             edits.append({'handle': c['handle'], 'dynamicProperties': {
-                'SEG-1': s1, 'SEG-2': s2, 'SEG-2 (ANG)': math.radians(bend) % (2 * math.pi), 'SEG-3': c['s3'],
+                'SEG-1': s1, 'SEG-2': s2, 'SEG-2 (ANG)': math.radians(bend) % (2 * math.pi), 'SEG-3': BENT_SHELF if bend else c['s3'],
                 'FLIP (RO)': ro, rotk: grip}})
         rows.append(dict(handle=c['handle'], text=' / '.join(t for t in c['lines'] if t), x=round(c['P'][0], 2), y=round(c['P'][1], 2),
                          seg1=s1, seg2=s2, bend=bend, was='/'.join(str(v) for v in c['cfg0']), cost=round(k),
