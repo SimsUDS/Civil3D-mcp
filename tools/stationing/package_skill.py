@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Build oh-stationing.zip for claude.ai (Settings > Capabilities > Skills).
+"""Build power-stationing.zip for claude.ai (Settings > Capabilities > Skills).
 
     python package_skill.py [out.zip]
 
-Layout inside the zip: oh-stationing/SKILL.md, scripts/stationing.py,
+Layout inside the zip: power-stationing/SKILL.md, scripts/stationing.py,
 references/block-behavior.md (SKILL.md points at those paths).
 """
 import os
@@ -12,14 +12,14 @@ import zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FILES = {
-    'oh-stationing/SKILL.md': os.path.join(HERE, 'docs', 'SKILL.md'),
-    'oh-stationing/scripts/stationing.py': os.path.join(HERE, 'stationing.py'),
-    'oh-stationing/references/block-behavior.md': os.path.join(HERE, 'docs', 'block-behavior.md'),
+    'power-stationing/SKILL.md': os.path.join(HERE, 'docs', 'SKILL.md'),
+    'power-stationing/scripts/stationing.py': os.path.join(HERE, 'stationing.py'),
+    'power-stationing/references/block-behavior.md': os.path.join(HERE, 'docs', 'block-behavior.md'),
 }
 
 
 def main():
-    out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, 'oh-stationing.zip')
+    out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, 'power-stationing.zip')
     with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
         for arc, src in FILES.items():
             z.write(src, arc)

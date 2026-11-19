@@ -1,11 +1,11 @@
 ---
-name: oh-stationing
-description: "Place or check DYN STATION / DYN STATION (FLIPPED) blocks on UDS overhead power (OH Power) jobs in Civil 3D: compute each pole, streetlight, handhole, pull box, ped, vault, pad or manhole station (##+##) off the right centerline, fill LINE_2-4 (pole ID or EX. SL / EX. HH / EX. POLE, ID TAG NFIF, FIF) from the survey points, pick the block, rotation and leader, and place them through the civil3d_entity MCP tool. Use it whenever Kevin says stationing, stations, station blocks, DYN STATION, XX+XX, 'station these poles', 'fill in the stations', 'check the stationing', or names a TD number under C:\\civ3dmcp\\jobs\\OH Power, even if he doesn't say skill."
+name: power-stationing
+description: "Place or check DYN STATION / DYN STATION (FLIPPED) blocks on UDS overhead (OH) and underground (UG) power jobs in Civil 3D: compute each pole, streetlight, handhole, pull box, ped, vault, pad or manhole station (##+##) off the right centerline, fill LINE_2-4 (pole ID or EX. SL / EX. HH / EX. POLE, ID TAG NFIF, FIF) from the survey points, pick the block, rotation and leader, and place them through the civil3d_entity MCP tool. Use it whenever Kevin says stationing, stations, station blocks, DYN STATION, XX+XX, 'station these poles', 'station the handholes', 'fill in the stations', 'check the stationing', or names a TD number under C:\\civ3dmcp\\jobs on an OH or UG job, even if he doesn't say skill."
 ---
 
-# OH Power stationing (DYN STATION blocks, Civil 3D)
+# Power stationing, OH and UG (DYN STATION blocks, Civil 3D)
 
-Each electric feature on an OH Power job gets a station label: a `DYN STATION` or `DYN STATION (FLIPPED)` block inserted exactly on the feature, with a leader running away from its centerline (CL) to text that sits behind the PL/RW line:
+Each electric feature on an overhead (OH) or underground (UG) power job gets a station label. That covers poles and streetlights, plus the underground pieces: handholes, pull boxes, vaults, peds, pads and manholes. The label is a `DYN STATION` or `DYN STATION (FLIPPED)` block inserted exactly on the feature, with a leader running away from its centerline (CL) to text that sits behind the PL/RW line:
 
 ```
 LINE_1  20+09          station along the CL, nearest foot
@@ -25,7 +25,7 @@ Kevin's standing preferences:
 
 ### 1. Find the job and check the drawing
 
-Jobs live under `C:\civ3dmcp\jobs\OH Power\<TD number>\`. Call `civil3d_drawing info` to confirm the right drawing is active. Make a data folder for this run, e.g. `<TD folder>\stationing\`. Every saved query below goes there under the exact file name shown, because the script looks for those names.
+Jobs live under `C:\civ3dmcp\jobs\` (OH jobs in `OH Power\<TD number>\`; UG jobs in their own folder there; look for the TD number). Call `civil3d_drawing info` to confirm the right drawing is active. Make a data folder for this run, e.g. `<TD folder>\stationing\`. Every saved query below goes there under the exact file name shown, because the script looks for those names.
 
 ### 2. Save the drawing data (read-only queries)
 

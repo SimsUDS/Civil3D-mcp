@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Station DYN STATION blocks on an OH Power job from drawing data only.
+"""Station DYN STATION blocks on an OH or UG power job from drawing data only.
 
     python stationing.py <data dir> --mode missing|all|fill [--out-job job.json] [--report report.csv]
                          [--layer ELECTRIC-TEXT] [--compare old_stations.json]

@@ -33,7 +33,7 @@ On drafted blocks, about 260 of 370 have SEG-2, the bend, FLIP (RO) and the rota
 
 ## Plugin calls that work
 
-- `create` an insert with `blockName`, `rotationDeg`, `scale`, `attributes`, `dynamicProperties`. Block definitions are already in OH Power drawings.
+- `create` an insert with `blockName`, `rotationDeg`, `scale`, `attributes`, `dynamicProperties`. Block definitions are already in the OH and UG power drawings.
 - `apply` with a `jobFile` for big batches: creates, then copies, edits, hatches, erase. Approval is bound to the file hash.
 - `edit` with `attributes` / `dynamicProperties` / `rotationDeg` on existing blocks.
 - TEXT can't be moved with `edit`. Use a `copy` operation with `mode: "move"`.
