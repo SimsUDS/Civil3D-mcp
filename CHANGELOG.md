@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- BURST for block references, like Express Tools BURST. `civil3d_entity`
+  `create` takes `burst: true` per insert (with `clipLength` like `explode`),
+  and the new action `burst` (plugin method `burstEntities`) bursts blocks
+  already in the drawing by handle. Each block becomes its exploded pieces plus
+  one TEXT per visible, non-empty attribute (MTEXT for a multiline attribute)
+  carrying the attribute's value, position, justification, height, rotation,
+  width factor, style and layer; layer 0 and ByBlock follow the same rule as the
+  exploded pieces. Before, `explode` dropped attribute values entirely. Results
+  list `pieceHandles` (text included) and `textHandles`; `apply` jobs report
+  `burstTexts`. Built for the stationing work, where DYN STATION blocks are burst
+  once their leader is set. Needs the rebuilt plugin loaded.
+
 - Layer names that don't exist yet are now created instead of silently
   replaced by the current layer (`LookupUtils.GetLayerId`). Before, a
   `civil3d_entity` `edit` / `apply` with `layer` set to a missing layer moved

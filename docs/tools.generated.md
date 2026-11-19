@@ -2,8 +2,8 @@
 
 Generated from the runtime manifest for civil3d-mcp 1.2.1. Do not edit by hand.
 
-- Catalog entries: 207
-- Domains: 30
+- Catalog entries: 208
+- Domains: 31
 
 | Tool | Domain | Operations | Plugin methods | Safe retry |
 |---|---|---|---|---|
@@ -44,11 +44,11 @@ Generated from the runtime manifest for civil3d-mcp 1.2.1. Do not edit by hand.
 | `civil3d_docs` | docs | list_tool_capabilities, orchestrate | — | yes |
 | `civil3d_orchestrate` | docs | — | — | yes |
 | `list_tool_capabilities` | docs | — | — | yes |
-| `civil3d_drawing` | drawing | info, new, save, undo, redo, settings, selected_objects_info, list_object_types | getDrawingInfo, newDrawing, saveDrawing, undoDrawing, redoDrawing, getDrawingSettings, getSelectedCivilObjectsInfo, listCivilObjectTypes | no |
+| `civil3d_drawing` | drawing | info, new, save, undo, redo, settings, selected_objects_info, list_object_types, capture_view, geolocate, set_map, list_documents, activate, unpin | getDrawingInfo, newDrawing, saveDrawing, undoDrawing, redoDrawing, getDrawingSettings, getSelectedCivilObjectsInfo, listCivilObjectTypes, captureView, geolocateDrawing, setOnlineMap, listDocuments, activateDocument | no |
 | `get_drawing_info` | drawing | — | getDrawingInfo | yes |
 | `get_selected_civil_objects_info` | drawing | — | getSelectedCivilObjectsInfo | yes |
 | `list_civil_object_types` | drawing | — | listCivilObjectTypes | yes |
-| `civil3d_entity` | entity | query, copy, edit, erase, apply | queryEntities, copyEntities, editEntities, eraseEntities | no |
+| `civil3d_entity` | entity | query, create, copy, edit, erase, burst, hatch, apply | queryEntities, createEntities, copyEntities, editEntities, eraseEntities, burstEntities, createHatches | no |
 | `acad_create_3dpolyline` | geometry | — | create3dPolyline | no |
 | `acad_create_mtext` | geometry | — | createMText | no |
 | `acad_create_polyline` | geometry | — | createPolyline | no |
@@ -82,6 +82,7 @@ Generated from the runtime manifest for civil3d-mcp 1.2.1. Do not edit by hand.
 | `civil3d_stm` | hydrology | list_ssa_capabilities, export_stm, import_stm, open_storm_sanitary_analysis | listSsaCapabilities, exportStm, importStm, openStormSanitaryAnalysis | no |
 | `civil3d_time_of_concentration` | hydrology | list_tc_methods, calculate_tc, generate_hydrograph | listTcMethods, calculateTimeOfConcentration, generateHydrograph | yes |
 | `civil3d_job` | job | start, status, cancel | startJob, getJobStatus, cancelJob | no |
+| `civil3d_office_survey` | office_survey | points, build, score | listCogoPoints, queryEntities | yes |
 | `civil3d_parcel` | parcel | list_sites, list, get, create, edit, lot_line_adjust, report | listParcelSites, listParcels, getParcel, createParcel, editParcel, adjustParcelLotLine, reportParcels | no |
 | `civil3d_parcel_create` | parcel | — | createParcel | no |
 | `civil3d_parcel_edit` | parcel | — | editParcel | no |

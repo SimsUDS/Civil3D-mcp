@@ -84,6 +84,34 @@ describe("entity jobs", () => {
     expect(result.importedBlocks).toEqual(["tree1"]);
   });
 
+  it("reports burst inserts' text handles apart from their pieces", async () => {
+    const job = validateJob({
+      version: 1,
+      creates: [
+        { type: "insert", blockName: "DYN STATION", position: { x: 1, y: 2 }, burst: true, attributes: { LINE_1: "20+09" } },
+        { type: "line", start: { x: 0, y: 0 }, end: { x: 1, y: 1 } },
+      ],
+    });
+    const send = async (method: string, payload: Record<string, unknown>) => {
+      expect(method).toBe("createEntities");
+      expect((payload.creates as Array<Record<string, unknown>>)[0].burst).toBe(true);
+      return {
+        created: [
+          { index: 0, handle: "A1", pieceHandles: ["A1", "A2", "A3"], textHandles: ["A2", "A3"] },
+          { index: 1, handle: "B1" },
+        ],
+        count: 2,
+        importedBlocks: [],
+        warnings: [],
+      };
+    };
+    const result = await runEntityJob(job, send);
+
+    expect(result.status).toBe("completed");
+    expect(result.explodedPieces).toEqual({ "0": ["A1", "A2", "A3"] });
+    expect(result.burstTexts).toEqual({ "0": ["A2", "A3"] });
+  });
+
   it("rejects creates without a known type, a block name or enough points", () => {
     expect(() => validateJob({ creates: [{ type: "spline" }] })).toThrow(/type must be one of/);
     expect(() => validateJob({ creates: [{ type: "insert", position: { x: 0, y: 0 } }] })).toThrow(/needs blockName/);
