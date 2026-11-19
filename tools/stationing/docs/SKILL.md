@@ -39,6 +39,7 @@ Use `civil3d_entity query` with `outFile` (absolute path) so big results land in
 | `inserts.json` | `types: ["INSERT"]`, limit 5000 (features and any existing station blocks) |
 | `text.json` | `types: ["TEXT", "MTEXT", "DIMENSION"]`, limit 5000 |
 | `build.json` | `layers: ["BUILD"]`, `types: ["LWPOLYLINE"]` |
+| `hatch.json` | `types: ["HATCH"]`, limit 5000 (used by the re-solve, step 5b) |
 
 Survey points: `civil3d_point export` with `format: "pnezd"` (it asks for approval). The result is too big to show and gets saved to a tool-results file; copy that file to `points.txt` in the data folder as is. The script reads the raw tool output, or plain `n,x,y,z,desc` lines.
 
@@ -80,7 +81,11 @@ python repair.py "<data folder>" "<data folder>\placed.json" --bends
 
 `--bends` adds bent leaders: a sideways step with the text kept square, from the measured shapes in `data/`. It only works where FLIP (RO)'s value set was set to None in both DYN STATION definitions. Check first: create a test block with FLIP (RO) = 1.0472 in empty space and read it back. If it comes back 1.5708, the drawing still has the stock definition. Then run without `--bends` and tell Kevin, since it's his call to edit the definition. See `references/block-behavior.md`.
 
-Apply `stationing_repair.json` (an edit job, same approval flow), then read back again. `stationing_repair_report.csv` lists what still conflicts, worst first.
+What the re-solve avoids, and how:
+- **Hatches.** Kevin's rule: keep text off hatches, but accept it when there's no room. They're weighted like other text. Building hatches use the exact BUILD outline. Other hatches and pasted `A$C...` blocks (e.g. a hatched walk area on layer WALK) use their bounding box. Hatch strips over 150 ft are skipped, because their box would block whole frontages.
+- **Hand edits are never undone.** Any callout whose leader isn't one of this tool's shapes (non-integer lengths, an unmeasured bend) came from a drafter's grip drag. It's locked as is, and its real outline counts as an obstacle for the rest. The report marks it "hand edit, left as is".
+
+Apply `stationing_repair.json` (an edit job, same approval flow), then read back again. `stationing_repair_report.csv` lists what still overlaps, worst first. Report the leftovers to Kevin as overlapping text issues for cleanup; don't sink time into perfect spacing.
 
 On TD2573793:
 - Straight only: it moved 153 of 366 callouts and cut the conflict score about 9%.

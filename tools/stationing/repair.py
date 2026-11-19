@@ -29,8 +29,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import stationing as st  # noqa: E402
 
-WEIGHT = {'stext': 10, 'sleader': 6, 'bldg': 5, 'text': 4, 'dim': 3, 'block': 2}
-S1_OPTIONS = (13, 11, 9, 7, 5, 3)
+WEIGHT = {'stext': 10, 'sleader': 6, 'bldg': 5, 'hatch': 4, 'text': 4, 'dim': 3, 'block': 2}
+S1_OPTIONS = (13, 11, 9, 8, 7, 5, 4, 3)
 BEND_PENALTY = 0.5       # prefer a straight leader when it clears just as well
 # The bend tables were measured with an 18 ft shelf. On a bent leader the shelf length tilts the whole
 # callout (22 ft: 1.7 deg, 26 ft: 3.2 deg), which breaks the rule that piece 1 and the shelf are
@@ -92,6 +92,27 @@ def main(argv=None):
             feat_at[(round(e['position']['x'], 2), round(e['position']['y'], 2))] = e['handle']
     for h, poly in job.buildings:
         static.add('bldg ' + h, poly)
+    # Hatches (Kevin: avoid text over hatches, accept it when there's no room). The query only gives
+    # their bounding box; building hatches are already covered exactly by the BUILD polylines, and
+    # strips over 150 ft are skipped because their box would wrongly block whole frontages.
+    hatch_path = os.path.join(a.data, 'hatch.json')
+    if os.path.exists(hatch_path):
+        with open(hatch_path, encoding='utf-8') as f:
+            hatches = json.load(f)
+        bldg_boxes = [(min(p[0] for p in poly), min(p[1] for p in poly), max(p[0] for p in poly), max(p[1] for p in poly)) for _, poly in job.buildings]
+        for e in (hatches.get('entities', hatches) if isinstance(hatches, dict) else hatches):
+            ex = e.get('extents')
+            if not ex or max(ex['max']['x'] - ex['min']['x'], ex['max']['y'] - ex['min']['y']) > 150:
+                continue
+            box = (ex['min']['x'], ex['min']['y'], ex['max']['x'], ex['max']['y'])
+            if any(all(abs(u - v) < 1.0 for u, v in zip(box, b)) for b in bldg_boxes):
+                continue                 # this hatch fills a building outline already counted
+            static.add('hatch ' + e['handle'], st.aabb(ex))
+    for e in job.inserts:                # pasted content (A$C... anonymous blocks) such as hatched walk areas
+        ex = e.get('extents')
+        if e.get('blockName', '').startswith('A$C') and ex and e.get('layer', '').upper() != 'CL' \
+                and max(ex['max']['x'] - ex['min']['x'], ex['max']['y'] - ex['min']['y']) <= 150:
+            static.add('hatch ' + e['handle'], st.aabb(ex))
 
     C = []
     for e in placed:
@@ -109,7 +130,7 @@ def main(argv=None):
         bend0 = bend0 - 360 if bend0 > 180 else bend0
         cfg0 = (dp['SEG-1'], dp['SEG-2'], bend0)
         C.append(dict(handle=e['handle'], P=P, ang=ang, flipped=e['blockName'].endswith('(FLIPPED)'), block=e['blockName'],
-                      lines=lines, cfg=cfg0, cfg0=cfg0, s3=dp['SEG-3'], F=F,
+                      lines=lines, cfg=cfg0, cfg0=cfg0, s3=dp['SEG-3'], F=F, extents=e.get('extents'),
                       sheet=dict(job.sheets).get(sh[0]) if sh else None,
                       skip={'block ' + feat_at.get((round(P[0], 2), round(P[1], 2)), '')}))
 
@@ -124,6 +145,9 @@ def main(argv=None):
 
     def geom(c, cfg):
         """Text rectangles and leader pieces in world coordinates for one leader shape."""
+        if c.get('locked'):
+            # a hand-edited callout: its real outline stands in for the text, and it never moves
+            return [st.aabb(c['extents'])], []
         s1, s2, bend = cfg
         if bend == 0:
             return (st.text_rects(c['P'], c['ang'], c['flipped'], s1, s2, c['lines']),
@@ -176,8 +200,8 @@ def main(argv=None):
         return (k, hits) if detail else k
 
     for c in C:
-        if c['cfg'][2] and c['cfg'] not in bends.get(c['block'], {}):
-            c['cfg'] = (c['cfg'][0], c['cfg'][1], 0)       # an unmeasured hand bend: modelled as straight
+        # Any shape this tool doesn't produce came from a drafter's grip drag: keep it exactly as it is.
+        c['locked'] = c['cfg'] not in set(options(c)) and bool(c.get('extents'))
         c['_g'] = geom(c, c['cfg'])
     for c in C:
         c['_n'] = near(c)
@@ -186,7 +210,7 @@ def main(argv=None):
         moved = 0
         for c in sorted(C, key=lambda c: -cost(c, c['cfg'], c['_n'])):
             here = cost(c, c['cfg'], c['_n'])
-            if here < 1:
+            if here < 1 or c['locked']:
                 continue
             best = (here, c['cfg'])
             for cfg in options(c):
@@ -219,7 +243,7 @@ def main(argv=None):
                 'FLIP (RO)': ro, rotk: grip}})
         rows.append(dict(handle=c['handle'], text=' / '.join(t for t in c['lines'] if t), x=round(c['P'][0], 2), y=round(c['P'][1], 2),
                          seg1=s1, seg2=s2, bend=bend, was='/'.join(str(v) for v in c['cfg0']), cost=round(k),
-                         conflicts=', '.join(sorted(set(hits)))))
+                         conflicts=', '.join(sorted(set(hits))), locked='hand edit, left as is' if c['locked'] else ''))
     with open(out_job, 'w', encoding='utf-8') as f:
         json.dump({'version': 1, 'edits': edits}, f, indent=1)
     with open(report_csv, 'w', newline='', encoding='utf-8') as fh:
@@ -227,6 +251,7 @@ def main(argv=None):
         w.writeheader(); w.writerows(sorted(rows, key=lambda r: -r['cost']))
     left = [r for r in rows if r['conflicts']]
     print(json.dumps({'callouts': len(C), 'edits': len(edits), 'bent': sum(1 for c in C if c['cfg'][2]),
+                      'locked': [c['handle'] for c in C if c['locked']],
                       'still_conflicting': len(left), 'job': out_job, 'report': report_csv}))
     return 0
 
