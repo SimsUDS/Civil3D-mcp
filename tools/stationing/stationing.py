@@ -277,13 +277,13 @@ class Job:
         for k, c in enumerate(self.cl.chains):
             if k not in self.cl.fit:
                 continue
-            d, s, F, _ = self.cl.project(c, P)
+            d, s, F, u = self.cl.project(c, P)
             if d > 250:
                 continue
             kk, a, _ = self.cl.fit[k]
             same = bool(set(self.sheet_of(F)) & set(sh)) or not sh
             npl = sum(cross(P, F, u, v) for u, v in self.pl)
-            cands.append(dict(d=d, F=F, raw=a + kk * s, calc=fmt(a + kk * s), pl=npl, same=same))
+            cands.append(dict(d=d, F=F, u=u, raw=a + kk * s, calc=fmt(a + kk * s), pl=npl, same=same))
         if not cands:
             return None, sh
         return min(cands, key=lambda c: (not c['same'], c['pl'], c['d'])), sh
@@ -362,6 +362,15 @@ class Obstacles:
 def aabb(ex, pad=0.0):
     a, b = ex['min'], ex['max']
     return [(a['x'] - pad, a['y'] - pad), (b['x'] + pad, a['y'] - pad), (b['x'] + pad, b['y'] + pad), (a['x'] - pad, b['y'] + pad)]
+
+
+def away_angle(P, F, u):
+    """Direction (radians) square to the CL at the foot F, toward the feature P. Past the end of a CL the foot is
+    clamped to the end point, and aiming from it at P would tilt the callout; Kevin (2026-11-20): keep the
+    station at the end of the CL but keep the callout perpendicular to it."""
+    ux, uy = u
+    nx, ny = (-uy, ux) if (P[0] - F[0]) * -uy + (P[1] - F[1]) * ux >= 0 else (uy, -ux)
+    return math.atan2(ny, nx)
 
 
 def text_rects(P, ang, flipped, s1, s2, lines):
@@ -453,7 +462,7 @@ def main(argv=None):
                            'flags': '' if c['same'] and c['pl'] == 0 else 'check CL choice'})
             continue
 
-        ang = math.atan2(P[1] - F[1], P[0] - F[0]); rot = math.degrees(ang) % 360
+        ang = away_angle(P, F, c['u']); rot = math.degrees(ang) % 360
         flipped = not (rot >= 315 or rot < 135)          # DYN STATION points ~E or N; FLIPPED ~W or S
         if not lines[0]:
             lines[0] = c['calc']

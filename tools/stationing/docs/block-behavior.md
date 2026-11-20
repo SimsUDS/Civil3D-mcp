@@ -30,6 +30,8 @@ On drafted blocks, about 260 of 370 have SEG-2, the bend, FLIP (RO) and the rota
 - Verified by bursting check copies in empty space: text at 0° (180° for FLIPPED at rotation 0, which is upright in use). On the job, 131 of 142 bent blocks matched the model's outline within 1 ft, and the worst was 1.7 ft.
 - To measure a shape not in the table: insert at rotation 0 with grip 0 and FLIP (RO) 90°, burst a copy in empty space, read the shelf angle from the polyline and the text rotation, then erase.
 
+**Re-insert, don't re-edit, to change a bent shape.** A block that has been through several shape edits can stop matching the bend table: 129+84 on TD2573793 stayed about 20° off square even after a reset to a straight leader. A fresh insert at the same point with the table values, set in creation order (SEG-1, SEG-2, SEG-2 (ANG), SEG-3, FLIP (RO), grip), came out square. Copying a drafter's grip-dragged values onto a different block can also tilt the text (21+95 needed FLIP (RO) moved by hand). On FLIPPED, raising FLIP (RO) turns the text clockwise.
+
 ## Text layout (from a burst, block frame, DYN STATION)
 
 - Shelf from 6 + SEG-1 + SEG-2 to that + SEG-3.

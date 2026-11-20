@@ -44,6 +44,14 @@ class StationingTest(unittest.TestCase):
         _, s, _, _ = cl.project(cl.chains[ci], (140.0, -10))
         self.assertEqual(st.fmt(a + k * s), '20+10')
 
+    def test_callout_stays_perpendicular_past_the_end_of_the_cl(self):
+        cl = st.Centerlines(cl_line(0, 300, 0, [(50, '20+00'), (150, '21+00')]))
+        (ci, (k, a, _)), = cl.fit.items()
+        P = (304.0, -24.0)                                     # 4 ft past the east end, south of the CL
+        d, s, F, u = cl.project(cl.chains[ci], P)
+        self.assertEqual(st.fmt(a + k * s), '22+50')         # station held at the end of the CL
+        self.assertAlmostEqual(math.degrees(st.away_angle(P, F, u)) % 360, 270.0, places=6)
+
     def test_text_rects_sit_past_the_shelf_start(self):
         rects = st.text_rects((0, 0), 0.0, False, 13, 13, ['20+09', 'EX. SL'])
         self.assertTrue(math.isclose(min(p[0] for p in rects[0]), 6 + 13 + 13 + st.XOFF))
