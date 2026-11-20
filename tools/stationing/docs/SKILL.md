@@ -137,9 +137,13 @@ No survey point under an underground item (handhole, pull box, vault) means LINE
 - Surveyed but not on the grid: **FIF** (add a FIF line under the ID).
 - On the grid but with no survey shot: **NFIF**, written as `station / grid ID / NFIF`.
 - Survey ID and grid ID differ for the same pole: **use the grid ID**. These are usually survey typos (2286144E vs 2286244E, 47830001E vs 4783001E).
-- NT poles (`PP NT`): keep `EX. POLE / ID TAG NFIF / FIF` for now, as a placeholder. Note the grid ID in the report but don't apply it.
+- The exception is a survey ID taken from records (`PP 447033E PER FIM`) where GeoView puts a different ID on that pole and the survey ID on another pole. Write `station / survey ID / GEOVIEW SHOWS: / geoview ID`, e.g. `28+06 / 447033E / GEOVIEW SHOWS: / 1592140E`. This applies to normal poles only, never FID poles.
+- NT poles (`PP NT`) with a clear grid or GeoView ID at the pole: `station / ID` (Kevin, 2026-11-20). FID comm poles read `station / FID339008640`, with no FIF. FID text over a building hatch is fine when there's no room.
+- NT comm poles that are on neither map keep `EX. POLE / ID TAG NFIF / FIF`.
 - Grid pole with no pole block nearby, or a record-drawn pole with nothing on the grid: flag for Kevin.
-- An OH map says nothing about underground equipment; those keep their current text until there's a UG map.
+- Underground items: use GeoView (below). A structure that GeoView labels gets its ID in place of EX. VAULT / EX. PB / EX. HH, with no size line and no FIF, e.g. `495+55 / V6001308` or `NFIF / X5640166`. Streetlight meter-box HHs aren't on GeoView, so they keep `EX. HH / FIF`.
+
+**GeoView PDFs.** Drafters check FIF in SCE GeoView, which Claude can't open, so Kevin exports PDFs of the job area (e.g. `geoview1.pdf`, `geoview2.pdf`), covering both OH and UG. Ask for them on every job. They're 1:900 raster maps with no text layer, crisp at 192 dpi. ⊕ is a pole and an open circle a structure; labels often sit 20–120 ft from their symbol, and conduit-run labels read "X TO Y". Read them the same way as the grid maps: overlapping 480×360 pt tiles, one reader per half page, and an affine fit per page from exact pole-ID matches (TD2573793 had a 4–5 ft median and 14 ft worst). Match **by ID first** within about 130 ft, since labels sit off their poles, and pair only the leftovers by location.
 
 How to read the grid: the scans have no text layer and there's no OCR. Render each detail sheet's blue area at 300 dpi with everything outside the blue greyed out, cut it into overlapping tiles with pixel rulers, and have the IDs read by eye (one reader per sheet in parallel works well). Then merge duplicate reads, but only when it's the same ID; different labels can sit side by side. Fit each sheet to the drawing from the exact ID matches with an affine transform: on TD2573793 the median error was 3–20 ft, since labels sit off their poles. Pair the rest by location, and crop the sheet at every leftover spot to check by eye before changing anything. On TD2573793 this found 109 poles on the grid, 7 NFIF, 5 FIF, and 10 survey typos. The drafter's original FIF marks (667806H, 667607H, 2281394E) were confirmed.
 
@@ -154,7 +158,7 @@ The first pass uses straight leaders only. Bends come in at step 5b, where every
 
 ## Open questions (flag these, don't decide them)
 
-- Records-only IDs: poles with no survey point, and vault or pull box IDs and sizes from the grid maps.
+- Records-only IDs: poles with no survey point.
 - The NFIF underground rule.
 - Intersections where the feature sits in the corner area between two streets.
 - Callouts that still touch something after the bent re-solve. They're Kevin's cleanup, done on the live blocks before he bursts.
