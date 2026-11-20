@@ -130,7 +130,18 @@ These came from Kevin's corrections on TD2573793. Explain them when a result loo
 | `E MH` | EX. MANHOLE / FIF |
 | `E XFMR P5319217` pad | P5319217 |
 
-No survey point under an underground item (handhole, pull box, vault) means LINE_1 reads `NFIF` in place of a station. Kevin confirmed those NFIF placements are correct and is still researching the rule (his guess is that they're underground items). IDs that exist only on Kevin's grid maps aren't in the drawing, so those poles come out EX. POLE and are flagged.
+No survey point under an underground item (handhole, pull box, vault) means LINE_1 reads `NFIF` in place of a station. Kevin confirmed those NFIF placements are correct and is still researching the rule (his guess is that they're underground items).
+
+**FIF and NFIF come from the grid maps** (Kevin, 2026-11-20). The grid is the SCE map PDF in the job folder, e.g. `POWER-OH.pdf` for overhead. Only what's inside its **blue highlight** (polygon annotations) is drawn on the job; red squares on the sheets are extra markup, so ignore them.
+- Surveyed and on the grid: no FIF.
+- Surveyed but not on the grid: **FIF** (add a FIF line under the ID).
+- On the grid but with no survey shot: **NFIF**, written as `station / grid ID / NFIF`.
+- Survey ID and grid ID differ for the same pole: **use the grid ID**. These are usually survey typos (2286144E vs 2286244E, 47830001E vs 4783001E).
+- NT poles (`PP NT`): keep `EX. POLE / ID TAG NFIF / FIF` for now, as a placeholder. Note the grid ID in the report but don't apply it.
+- Grid pole with no pole block nearby, or a record-drawn pole with nothing on the grid: flag for Kevin.
+- An OH map says nothing about underground equipment; those keep their current text until there's a UG map.
+
+How to read the grid: the scans have no text layer and there's no OCR. Render each detail sheet's blue area at 300 dpi with everything outside the blue greyed out, cut it into overlapping tiles with pixel rulers, and have the IDs read by eye (one reader per sheet in parallel works well). Then merge duplicate reads, but only when it's the same ID; different labels can sit side by side. Fit each sheet to the drawing from the exact ID matches with an affine transform: on TD2573793 the median error was 3–20 ft, since labels sit off their poles. Pair the rest by location, and crop the sheet at every leftover spot to check by eye before changing anything. On TD2573793 this found 109 poles on the grid, 7 NFIF, 5 FIF, and 10 survey typos. The drafter's original FIF marks (667806H, 667607H, 2281394E) were confirmed.
 
 **Leader and text placement.** The leader stays straight, with SEG-2 (ANG) and the rotation grip at 0. The script searches SEG-1 (13/8/4) and SEG-2 (3 to 20) so that:
 - every corner of every text line is on the far side of a PL/RW line from the CL (station text never sits between the CL and the RW)
