@@ -137,7 +137,7 @@ No survey point under an underground item (handhole, pull box, vault) means LINE
 - Surveyed but not on the grid: **FIF** (add a FIF line under the ID).
 - On the grid but with no survey shot: **NFIF**, written as `station / grid ID / NFIF`.
 - Survey ID and grid ID differ for the same pole: **use the grid ID**. These are usually survey typos (2286144E vs 2286244E, 47830001E vs 4783001E).
-- The exception is a survey ID taken from records (`PP 447033E PER FIM`) where GeoView puts a different ID on that pole and the survey ID on another pole. Write `station / survey ID / GEOVIEW SHOWS: / geoview ID`, e.g. `28+06 / 447033E / GEOVIEW SHOWS: / 1592140E`. This applies to normal poles only, never FID poles.
+- A survey ID taken from records (`PP 447033E PER FIM`) where GeoView shows a different ID at that pole is an **open question**, so flag it rather than decide. One drafter wrote `station / survey ID / GEOVIEW SHOWS: / geoview ID` (`28+06 / 447033E / GEOVIEW SHOWS: / 1592140E`), but Kevin set 489+47 to the GeoView ID alone (`1066406E`), on the view that the survey was wrong. GEOVIEW SHOWS is never used on FID poles.
 - NT poles (`PP NT`) with a clear grid or GeoView ID at the pole: `station / ID` (Kevin, 2026-11-20). FID comm poles read `station / FID339008640`, with no FIF. FID text over a building hatch is fine when there's no room.
 - NT comm poles that are on neither map keep `EX. POLE / ID TAG NFIF / FIF`.
 - Grid pole with no pole block nearby, or a record-drawn pole with nothing on the grid: flag for Kevin.
@@ -159,6 +159,7 @@ The first pass uses straight leaders only. Bends come in at step 5b, where every
 ## Open questions (flag these, don't decide them)
 
 - Records-only IDs: poles with no survey point.
+- "PER FIM" survey IDs that GeoView contradicts: survey ID + GEOVIEW SHOWS, or the GeoView ID alone (Kevin is asking the QC lead).
 - The NFIF underground rule.
 - Intersections where the feature sits in the corner area between two streets.
 - Callouts that still touch something after the bent re-solve. They're Kevin's cleanup, done on the live blocks before he bursts.
