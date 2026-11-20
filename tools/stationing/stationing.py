@@ -2,7 +2,7 @@
 """Station DYN STATION blocks on an OH or UG power job from drawing data only.
 
     python stationing.py <data dir> --mode missing|all|fill [--out-job job.json] [--report report.csv]
-                         [--layer ELECTRIC-TEXT] [--compare old_stations.json]
+                         [--layer ELECTRIC-TEXT] [--compare old_stations.json] [--overrides overrides.json]
 
 <data dir> holds the saved civil3d_entity / civil3d_point results named in
 docs/SKILL.md (cl.json, plrw.json, noplot.json, inserts.json, text.json,
@@ -12,6 +12,13 @@ Modes
   all      a station block for every feature (use after the old ones are erased)
   missing  only features that have no station block on them yet
   fill     edit existing blocks whose LINE_1 is XX+XX / blank (station only)
+
+--overrides takes the GeoView / records calls as a JSON list, one entry per feature:
+  {"handle": "<feature block handle>"  or  "x": .., "y": .. (within 0.5 ft),
+   "lines": ["", "447033E", "PER GEOVIEW:", "1592140E"],   LINE_1 "" = the computed station
+   "cl_point": [x, y],                                         station off the CL nearest this point
+   "note": "why"}                                              (e.g. the alley instead of the street)
+Every key but the feature is optional.
 
 Rules (from TD2573793, Kevin's corrections, 2026-11-19): see docs/SKILL.md.
 """
@@ -227,6 +234,7 @@ class Job:
         self.text = load('text.json')
         self.buildings = [(e['handle'], [(v['x'], v['y']) for v in e['vertices']]) for e in load('build.json') if len(e.get('vertices') or []) >= 3]
         self.points = self._points(data_dir)
+        self.offset_ids = offset_ids(self.points)
         self.grid = collections.defaultdict(list)
         for r in self.points:
             self.grid[(int(r['x'] // 5), int(r['y'] // 5))].append(r)
@@ -269,16 +277,21 @@ class Job:
     def sheet_of(self, P):
         return [s for s, poly in self.sheets if inside(P, poly)]
 
-    def pick_cl(self, P):
+    def pick_cl(self, P, prefer=None):
         """Same sheet first (a station can't point at a CL the sheet doesn't show),
-        then the street you'd reach the lot from (fewest PL crossings), then nearest."""
+        then the street you'd reach the lot from (fewest PL crossings), then nearest.
+        prefer: a point on the CL Kevin asked for (an override's cl_point), which wins outright."""
         sh = self.sheet_of(P)
         cands = []
+        want = None
+        if prefer:
+            fitted = [k for k in range(len(self.cl.chains)) if k in self.cl.fit]
+            want = min(fitted, key=lambda k: self.cl.project(self.cl.chains[k], prefer)[0]) if fitted else None
         for k, c in enumerate(self.cl.chains):
-            if k not in self.cl.fit:
+            if k not in self.cl.fit or (want is not None and k != want):
                 continue
             d, s, F, u = self.cl.project(c, P)
-            if d > 250:
+            if d > 250 and want is None:
                 continue
             kk, a, _ = self.cl.fit[k]
             same = bool(set(self.sheet_of(F)) & set(sh)) or not sh
@@ -291,6 +304,24 @@ class Job:
 
 IDRE = re.compile(r'PP\s*(?:COMM?\s+)?([A-Z]?\d{6,8}[A-Z]?)')
 OFFSET_SHOT = re.compile(r'PP\s*\S+\s+[\d.]+\s*[NSEW]\.')
+OFFSET_ID = re.compile(r"PP\s*(?:COMM?\s+)?([A-Z]?\d{6,8}[A-Z]?)\s+([\d.]+)\s*(?:'|FT)?\s*([NSEW]{1,2})\.")
+UNIT = {'N': (0, 1), 'S': (0, -1), 'E': (1, 0), 'W': (-1, 0)}
+
+
+def offset_ids(points):
+    """Pole IDs a survey note places by distance and direction from its shot, e.g. point 49738
+    'PP 1044340E PP 1044342E 57.0 W. PER FIM': pole 1044342E stands 57 ft west of that shot
+    (checked on TD2573793: the pole is at shot + distance * direction). Returns [((x, y), id, point no.)]."""
+    out = []
+    for r in points:
+        for m in OFFSET_ID.finditer(r['d']):
+            dx = sum(UNIT[c][0] for c in m.group(3)); dy = sum(UNIT[c][1] for c in m.group(3))
+            n = math.hypot(dx, dy)
+            if n == 0:
+                continue
+            dist = float(m.group(2))
+            out.append(((r['x'] + dx / n * dist, r['y'] + dy / n * dist), m.group(1), r['n']))
+    return out
 
 
 def lines_for(job, e):
@@ -305,6 +336,10 @@ def lines_for(job, e):
             m = IDRE.search(dsc)
             if m:
                 return ['', m.group(1)], None
+        off = [(math.dist(T, (x, y)), i, n) for T, i, n in job.offset_ids if math.dist(T, (x, y)) < 6]
+        if off:
+            _, i, n = min(off)
+            return ['', i], f'ID from the offset note on survey point {n}'
         if cand:
             return ['', 'EX. POLE', 'ID TAG NFIF', 'FIF'], None               # PP NT / PP COMM NT
         return ['', 'EX. POLE', 'ID TAG NFIF', 'FIF'], 'pole has no survey point; ID may be on the grid maps'
@@ -403,7 +438,17 @@ def main(argv=None):
     ap.add_argument('--report', default=None)
     ap.add_argument('--layer', default='ELECTRIC-TEXT', help='layer for new station blocks')
     ap.add_argument('--compare', default=None, help='saved query of the original station blocks, to score against')
+    ap.add_argument('--overrides', default=None, help='JSON list of per-feature text / CL overrides (GeoView calls); see above')
     a = ap.parse_args(argv)
+    overrides = json.load(open(a.overrides, encoding='utf-8')) if a.overrides else []
+    used_ov = set()
+
+    def override_for(e):
+        for k, o in enumerate(overrides):
+            if o.get('handle') == e['handle'] or ('x' in o and math.dist((o['x'], o['y']), (e['position']['x'], e['position']['y'])) < 0.5):
+                used_ov.add(k)
+                return o
+        return {}
     out_job = a.out_job or os.path.join(a.data, f'stationing_{a.mode}.json')
     report_csv = a.report or os.path.join(a.data, f'stationing_{a.mode}_report.csv')
 
@@ -445,10 +490,15 @@ def main(argv=None):
             if not todo:
                 continue
         lines, note = lines_for(job, e)
+        ov = override_for(e)
+        if ov.get('lines'):
+            lines, note = list(ov['lines']), None
+        if ov.get('note'):
+            note = '; '.join(t for t in (note, ov['note']) if t)
         if lines is None:
             continue
         P = (e['position']['x'], e['position']['y'])
-        c, sh = job.pick_cl(P)
+        c, sh = job.pick_cl(P, ov.get('cl_point'))
         row = dict(handle=e['handle'], block=e['blockName'], x=round(P[0], 3), y=round(P[1], 3))
         if c is None:
             report.append({**row, 'flags': 'no CL with station labels within 250 ft'}); continue
@@ -518,6 +568,23 @@ def main(argv=None):
         report.append({**row, 'text': ' / '.join(t for t in lines if t), 'station_raw': round(c['raw'], 2), 'offset': round(d, 1),
                        'sheet': '/'.join(sh), 'insert': blk, 'rotation': round(rot, 2), 'seg1': s1, 'seg2': s2, 'seg3': s3,
                        'flags': '; '.join(flags)})
+
+    # The same pole ID on two poles is a survey or records error (TD2573793 had three: 1066405E,
+    # 447033E, 738910H); GeoView usually settles which pole keeps it.
+    ids = collections.defaultdict(list)
+    for r in report:
+        if r['block'] == 'DYN-POLE' and r.get('text'):
+            for t in r['text'].split(' / ')[1:]:
+                if re.fullmatch(r'[A-Z]?\d{6,8}[A-Z]?|FID\d+', t):
+                    ids[t].append(r)
+    for i, rs in ids.items():
+        if len(rs) > 1:
+            for r in rs:
+                other = ', '.join(o['handle'] for o in rs if o is not r)
+                r['flags'] = '; '.join(t for t in (r.get('flags'), f'ID {i} also on pole {other}: check GeoView') if t)
+    for k, o in enumerate(overrides):
+        if k not in used_ov:
+            print('override not matched to a feature:', o.get('handle') or (o.get('x'), o.get('y')), file=sys.stderr)
 
     if a.compare:
         old = json.load(open(a.compare, encoding='utf-8'))

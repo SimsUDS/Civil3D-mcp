@@ -61,6 +61,22 @@ python stationing.py "<data folder>" --mode missing
 
 Add `--compare <saved query of the original station blocks>` to score a rerun against earlier work. It prints the number of matching stations and full text, and adds an `original` column to the report.
 
+**GeoView and grid calls go in through `--overrides overrides.json`.** The script writes text from the survey alone. Every call you make from GeoView or the grid (FID, NT pole IDs, survey typos, PER GEOVIEW, NFIF poles, UG structure IDs, FIF) goes in one JSON list, one entry per feature, and is applied before placing:
+
+```json
+[{"handle": "5087F21", "lines": ["", "447033E", "PER GEOVIEW:", "1592140E"], "note": "PER FIM; GeoView 1592140E"},
+ {"x": 6055445.41, "y": 2263508.77, "cl_point": [6055470.0, 2263480.0], "note": "station off the alley"}]
+```
+
+- Identify the feature by its block `handle` or by `x`/`y` (within 0.5 ft).
+- In `lines`, LINE_1 `""` means the computed station; `"NFIF"` replaces it.
+- `cl_point`, any point on the wanted CL, forces that CL (e.g. the alley).
+- An entry that matches no feature is printed as a warning. Save the file in the job folder so the calls can be checked later.
+
+The script also:
+- reads pole IDs placed by a survey note on another shot (`PP 1044340E PP 1044342E 57.0 W. PER FIM` puts 1044342E 57 ft west of that shot)
+- flags the same pole ID on two poles (`ID ... also on pole ...: check GeoView`)
+
 Outputs: `stationing_<mode>.json` (the apply job) and `stationing_<mode>_report.csv` (one row per feature: text, raw station, offset, sheet, block, rotation, SEG-1/2/3, flags).
 
 ### 4. Review before placing
@@ -78,6 +94,8 @@ The first pass places callouts one at a time, so later ones can only dodge earli
 ```
 python repair.py "<data folder>" "<data folder>\placed.json" --bends
 ```
+
+Run it in the background. With `--bends` it took about **22 minutes** for 366 callouts on TD2573793, and printed nothing for the first 12, so silence isn't a hang.
 
 `--bends` adds bent leaders: a sideways step with the text kept square, from the measured shapes in `data/`. It only works where FLIP (RO)'s value set was set to None in both DYN STATION definitions. Check first: create a test block with FLIP (RO) = 1.0472 in empty space and read it back. If it comes back 1.5708, the drawing still has the stock definition. Then run without `--bends` and tell Kevin, since it's his call to edit the definition. See `references/block-behavior.md`.
 
@@ -100,7 +118,7 @@ Query `layers: ["ELECTRIC-TEXT"], types: ["INSERT"]` into a file and check:
 - no attribute reads `--OTHER--`
 - no SEG-2 above 20
 
-Then report the start and end times, the counts, and the flagged list. Point Kevin at the CSV. Offer a `capture_view` of any spot he asks about.
+Then report the start and end times (Kevin times the runs), the counts, and the flagged list. Point Kevin at the CSV. Offer a `capture_view` of any spot he asks about.
 
 ## Rules the script follows
 
@@ -114,6 +132,8 @@ These came from Kevin's corrections on TD2573793. Explain them when a result loo
 1. **Same sheet.** The CL has to be visible on the feature's sheet: "we can't have the stationing pointing to a CL we can't see." Sheets are the closed NO-PLOT polylines, each with its sheet number as TEXT inside. Kevin also spots sheet breaks by the mirrored dimension clusters on both sides of a CL.
 2. **Access.** Use the street you'd reach the lot from. The perpendicular that crosses the fewest PL lines wins. A back-lot pole 111 ft from Lemon was stationed off E Truslow, 128 ft away, because the lot has no access from Lemon.
 3. **Nearest.** This includes alley mouths: a pole 4 ft off the alley CL is stationed on the alley, not on the cross street 22 ft away. Kevin corrected 2281394E and 2286251E this way.
+
+**Far past the end of a CL.** When the chosen CL ends well short of the feature (the station is held at the end and the offset is long), look for another CL the feature sits square to, usually an alley. On TD2573793 the pad and SL behind the Patterson cul-de-sac first came out `106+37` off the street's end, 97–139 ft away. Kevin had them stationed off the alley instead: `16+51 / P5319217` and `17+12 / EX. SL / ...`. Use an override `cl_point` on the alley CL. If no such CL exists, keep the end-of-CL station and flag it (1044335E, 153 ft past the start of Balcom, is still open).
 
 **Block and rotation.** The two straight pieces of the leader, the first line out from the feature and the shelf the text sits on, must be perpendicular to the CL. Only the middle piece may bend. Rotation is the direction pointing away from the CL, from the CL to the feature. Use `DYN STATION` when that's roughly east or north (315° to 135°), and `DYN STATION (FLIPPED)` when it's west or south. This keeps the text reading upright. When the feature sits past the end of its CL, measure the station at the end of the CL but keep the callout square to the CL's direction, not aimed at the end point. Kevin, 2026-11-20, SL 47699 at 129+84 on TD2573793: 269.53°, not 278.30°. The script does this with `away_angle`.
 
@@ -143,7 +163,13 @@ No survey point under an underground item (handhole, pull box, vault) means LINE
 - Grid pole with no pole block nearby, or a record-drawn pole with nothing on the grid: flag for Kevin.
 - Underground items: use GeoView (below). A structure that GeoView labels gets its ID in place of EX. VAULT / EX. PB / EX. HH, with no size line and no FIF, e.g. `495+55 / V6001308` or `NFIF / X5640166`. Streetlight meter-box HHs aren't on GeoView, so they keep `EX. HH / FIF`.
 
-**GeoView PDFs.** Drafters check FIF in SCE GeoView, which Claude can't open, so Kevin exports PDFs of the job area (e.g. `geoview1.pdf`, `geoview2.pdf`), covering both OH and UG. Ask for them on every job. They're 1:900 raster maps with no text layer, crisp at 192 dpi. ⊕ is a pole and an open circle a structure; labels often sit 20–120 ft from their symbol, and conduit-run labels read "X TO Y". Read them the same way as the grid maps: overlapping 480×360 pt tiles, one reader per half page, and an affine fit per page from exact pole-ID matches (TD2573793 had a 4–5 ft median and 14 ft worst). Match **by ID first** within about 130 ft, since labels sit off their poles, and pair only the leftovers by location.
+**GeoView PDFs.** Drafters check FIF in SCE GeoView, which Claude can't open, so Kevin exports PDFs of the job area (e.g. `geoview1.pdf`, `geoview2.pdf`), covering both OH and UG. Ask for them on every job. They're raster maps with no text layer, crisp at 192 dpi. **Don't scale from the printed bar or the "1:900"**: the true fit on TD2573793 was 0.861 ft per PDF point (Web Mercator, about 1:775), against the bar's 1.042, so a scaled reading is about 20% off. Position only comes from the affine fit. ⊕ is a pole and an open circle a structure; labels often sit 20–120 ft from their symbol, and conduit-run labels read "X TO Y". Read them the same way as the grid maps: 480×360 pt tiles **stepped 400 × 300 pt** (80/60 pt overlap), with the last row and column snapped to the page edge so no strip is left unread, one reader per half page, and an affine fit per page from exact pole-ID matches (TD2573793 had a 4–5 ft median and 14 ft worst). Match **by ID first** within about 130 ft, since labels sit off their poles, and pair only the leftovers by location.
+
+When the job has no grid PDF, GeoView is the map for every FIF / NFIF call above ("on the grid" means "on GeoView"). If there's no GeoView either, don't guess FIF from the survey: place the survey text and flag every pole for Kevin.
+
+**Where NFIF goes.** Poles and SLs: `station / ID / NFIF` (NFIF last). Underground items without a survey shot: `NFIF / ID` or `NFIF / EX. HH` (NFIF in LINE_1, no station).
+
+**A pole placed by another shot's note counts as surveyed.** `PP 1044340E PP 1044342E 57.0 W. PER FIM` surveys 1044342E too, so it reads `57+61 / 1044342E`, with no NFIF. That matches the drafter on TD2573793.
 
 How to read the grid: the scans have no text layer and there's no OCR. Render each detail sheet's blue area at 300 dpi with everything outside the blue greyed out, cut it into overlapping tiles with pixel rulers, and have the IDs read by eye (one reader per sheet in parallel works well). Then merge duplicate reads, but only when it's the same ID; different labels can sit side by side. Fit each sheet to the drawing from the exact ID matches with an affine transform: on TD2573793 the median error was 3–20 ft, since labels sit off their poles. Pair the rest by location, and crop the sheet at every leftover spot to check by eye before changing anything. On TD2573793 this found 109 poles on the grid, 7 NFIF, 5 FIF, and 10 survey typos. The drafter's original FIF marks (667806H, 667607H, 2281394E) were confirmed.
 
@@ -160,6 +186,9 @@ The first pass uses straight leaders only. Bends come in at step 5b, where every
 
 - Records-only IDs: poles with no survey point.
 - The NFIF underground rule.
+- A meter-box block (`UTIL METER_BOX`) surveyed `E PB` rather than `SL PB`: the script gives EX. HH / FIF; the table says E PB carries no FIF.
+- Streetlights with a GeoView ID: none on TD2573793 were labeled, so all kept EX. SL / ID TAG NFIF / FIF.
+- GeoView poles inside a sheet with no pole block nearby, and GeoView structures with no block (e.g. a pad with no DYN-PAD).
 - Intersections where the feature sits in the corner area between two streets.
 - Callouts that still touch something after the bent re-solve. They're Kevin's cleanup, done on the live blocks before he bursts.
 - Drawings whose DYN STATION definitions still have the stock FLIP (RO) value set (90/270): bends need Kevin's definition edit first.

@@ -68,6 +68,12 @@ class StationingTest(unittest.TestCase):
             pts = st.Job._points(d)
         self.assertEqual([p['d'] for p in pts], ['PP 1044317E PER FIM', 'SL NT'])
 
+    def test_offset_note_places_the_second_pole_id(self):
+        pts = [{'n': 49738, 'x': 1000.0, 'y': 500.0, 'd': 'PP 1044340E PP 1044342E 57.0 W. PER FIM'},
+               {'n': 57720, 'x': 0.0, 'y': 0.0, 'd': 'PP 2286145E 7.5 S.'}]
+        got = {i: (round(T[0], 3), round(T[1], 3)) for T, i, _ in st.offset_ids(pts)}
+        self.assertEqual(got, {'1044342E': (943.0, 500.0), '2286145E': (0.0, -7.5)})   # pole = shot + distance toward the direction
+
 
 class BendTableTest(unittest.TestCase):
     def test_tables_cover_both_blocks_and_match_the_checked_shape(self):

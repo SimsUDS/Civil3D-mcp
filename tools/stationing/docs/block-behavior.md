@@ -11,7 +11,7 @@ All values are in drawing feet at insert scale 1.3333. "Block frame" means a blo
 | SEG-2 (ANG) | Bends piece 2. It also tilts piece 1 and the shelf by about -0.22 x the bend (15° → 3.4°, 30° → 6.6°, 45° → 9.7°, 60° → 12.4°). A rotation grip of the opposite tilt squares the leader again, but **the text does not follow**: it turned about 38° in the trial. |
 | SEG-3 | The shelf under the text. Drafters use 18 for SL/HH and 20-22 for poles. The text can run longer than the shelf: "ID TAG NFIF" is 24.5 ft. |
 | FLIP (RO) | Text turn, 1:1 (change it 30° and the text turns 30°). **In the stock block definitions its value set is a list of 90° / 270°**, so AutoCAD snaps any other value back, by grip or by code (tested 2026-11-19: 1.3, 0.9 and 0.5 radians were accepted silently and snapped to 1.5708). Kevin set the value set to **None** in both DYN STATION and DYN STATION (FLIPPED) on TD2573793 (the grip was no use to drafters anyway); after that any angle sticks, and bent leaders can have square text. Check a drawing before bending: create a test block with FLIP (RO) = 1.0472 and read it back. If it comes back 1.5708, the definition still has the list. |
-| ROTATE PERP CL / Angle1 | Rotation grip on the whole leader. Radians, counterclockwise. |
+| ROTATE PERP CL / Angle1 | Rotation grip on the whole leader. Radians, counterclockwise. A block created with 0 reads back 6.2832 (2π); that is the same angle, so compare values mod 2π. |
 | FLIP (MIR) / FLIP (MI) | Mirror; 1 slides the text back so it ends at the shelf end. |
 | SEG-1 large | SEG-1 more than about SEG-1 + SEG-2 of the default folds the leader back on itself. Stay at 13 or less. |
 
