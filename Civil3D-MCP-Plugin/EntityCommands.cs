@@ -1403,7 +1403,29 @@ public static partial class EntityCommands
           }
         }
 
-        blockRef.TransformBy(mirror);
+        if (blockRef.Normal.IsParallelTo(Vector3d.ZAxis) && blockRef.Normal.Z > 0)
+        {
+          // Do what AutoCAD's MIRROR does for a planar insert: negate the X scale, mirror the
+          // insertion point and the rotation, and keep the normal at +Z. TransformBy(mirror)
+          // instead flips the normal to -Z, and the attributes inherit that normal, so their
+          // text reads backwards from above no matter how their justification is reset.
+          var scale = blockRef.ScaleFactors;
+          blockRef.Position = Mir(blockRef.Position);
+          blockRef.Rotation = -blockRef.Rotation;
+          blockRef.ScaleFactors = new Scale3d(-scale.X, scale.Y, scale.Z);
+          foreach (ObjectId attributeId in blockRef.AttributeCollection)
+          {
+            if (transaction.GetObject(attributeId, OpenMode.ForWrite, false) is AttributeReference mtextAttribute && mtextAttribute.IsMTextAttribute)
+            {
+              mtextAttribute.TransformBy(mirror);
+            }
+          }
+        }
+        else
+        {
+          blockRef.TransformBy(mirror);
+        }
+
         foreach (var (attribute, state) in attributeStates)
         {
           attribute.IsMirroredInX = false;
