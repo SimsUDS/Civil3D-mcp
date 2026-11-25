@@ -1413,6 +1413,15 @@ public static partial class EntityCommands
           blockRef.Position = Mir(blockRef.Position);
           blockRef.Rotation = -blockRef.Rotation;
           blockRef.ScaleFactors = new Scale3d(-scale.X, scale.Y, scale.Z);
+          // Annotative / unit-scaled inserts: the setter takes the scale before an extra factor that
+          // the getter already includes (a 40-scale SGL_OH_FI came back at -1600). Read it back and
+          // divide that factor out so the insert keeps its size.
+          var applied = blockRef.ScaleFactors;
+          if (Math.Abs(scale.Y) > 1e-9 && Math.Abs(applied.Y / scale.Y - 1.0) > 1e-6)
+          {
+            var extra = applied.Y / scale.Y;
+            blockRef.ScaleFactors = new Scale3d(-scale.X / extra, scale.Y / extra, scale.Z / extra);
+          }
           foreach (ObjectId attributeId in blockRef.AttributeCollection)
           {
             if (transaction.GetObject(attributeId, OpenMode.ForWrite, false) is AttributeReference mtextAttribute && mtextAttribute.IsMTextAttribute)
