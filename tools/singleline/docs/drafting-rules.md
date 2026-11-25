@@ -1,0 +1,154 @@
+Rules Kevin gave on 2026-11-24 while we built a single line skill. Example job: C:\civ3dmcp\jobs\Singleline\Ash. Analysis notes: C:\civ3dmcp\jobs\Singleline\_analysis.
+
+- **Input:** SCE circuit-map PDF pages. The circuit is set by the sheet's title block. Green and black on one sheet are the same circuit; the color difference means nothing for layering.
+- **Scope:** draw only what is inside the red clouded boundary.
+- **Layout:** it doesn't have to match real-world coordinates or scale. Condense as much as possible and cut long empty runs. Humans often trace geographically to save time, but that isn't the rule. The single line is usually done long before the base map.
+- **Where to draw:** the template file is supplied. Copy or insert from its template area and draw below it. Copy-paste or insert, whichever is faster.
+- **Blocks:**
+  - Never burst blocks unless necessary.
+  - Symbols go on layer SingleLine.
+  - Conductor crossover (SGL_SYM_CROSSOVER) and arrow (SGL_SYM_ARR_DC) go on the CIRCUIT-n layer of the circuit they belong to.
+  - Conductors are polylines on CIRCUIT-n, numbered to match the SGL_LEGEND order.
+  - CIRCUIT-1 is the project's named circuit (Ash 4KV on the Ash job), even when another circuit's sheet comes first in the PDF. The order of the rest isn't settled. In Ash it was not PDF page order (Putter was 2, Berlin 3, Hunt 4, Richman 5, Royer 6, and so on), so ask before numbering them.
+- **Linetypes:**
+  - Single-phase OH uses SGL-OH1, not SGL-OH1PH.
+  - Two-phase UG is SGL-UG2PH (Ash: 38 UG2PH runs, 2 UG1PH). Earlier jobs used UG1PH; that was wrong.
+- **Poles:** SGL_PO_WD_JO_IN ("OH Trans" in the template) is the general pole block.
+- **Existing vs proposed:** draw EXISTING only, then copy it and place the copy above as PROPOSED. Real proposed data is rare. Any difference between the two copies is an error.
+- **Sheet panels:** NO-PLOT rectangles with match letters are how Kevin splits the sheets. The skill may attempt them, but Kevin owns them.
+- **Ignore** `AI Single Line.dwg`: its blocks are burst.
+- **Copy, don't insert by name.** In singleLineTemplate.dwg, civil3d_entity `create` inserts by block name come out invisible (only the attributes show). Copying the template sample instead (copy + edit rotation, attributes and dynamic properties) draws correctly. Found 2026-11-24.
+- **SGL_BOX geometry:** the box grows from its lower-left corner at local (-10, -7.2). Distance2 is the width and Distance1 the height. To center it on point p, insert at p + (10 - D2/2, 7.2 - D1/2).
+- **Pothead (SGL_PH):** the OH side attaches at the insertion point; the tip, 10.5 ft along the rotation, faces the UG cable.
+- **Labels sit on top of the line** (Kevin, 2026-11-24, measured in Ash):
+  - Cable sizes and street names: TEXT 3.2, centered on the segment, text center 2.7 ft off the line, rotated with it.
+  - Horizontal lines: the label goes above.
+  - Vertical lines: either left reading up (90°) or right reading down (270°), so the line is always under the text.
+  - Pole, structure and device numbers are centered about 7 ft above the symbol.
+  - Reduce overlap.
+- **Roads:**
+  - Draw roads as a single centerline polyline on SingleLine, color 157, about 7 ft (at 40 scale) off the conductor, on the side the PDF street is (move labels off the road side if they collide; E Orangethorpe, 2026-11-25).
+  - Street names are also color 157 and sit on top of the road line.
+  - Name format: abbreviated with a trailing period, e.g. "S LEMON ST.", "MAGNOLIA VIA.".
+- **Match the PDF's shape** (Kevin, 2026-11-24): keep the angles, bends and orientation of the circuit map, as Ash does, and spread things out rather than squeezing them into a box diagram.
+  - The SCE circuit-map PDFs are vector drawings, so pymupdf `page.get_drawings()` gives exact geometry. Map it to the drawing at about 3 ft per PDF point (the same overall size as Ash).
+  - Conductors: stroke width 1.2, green or black. Poles: blue (0, 0.58, 1) circles. Structure boxes: black 0.48 rectangles. Potheads: small filled triangles. Cloud: color (0.86, 0.2, 0.15), width 2. Streets: gray 0.75.
+  - Text in the PDF is outlined glyphs, so labels have to be read by eye.
+- **Streets** (Kevin, 2026-11-24): draw all streets inside the red cloud from the PDF.
+  - Source: gray (0.75) strokes, clipped to the cloud polygon and drawn on SingleLine, color 157.
+  - Street names are gray (0.18) filled glyph clusters. Cluster them to get each label's position, read the names by eye, snap each name onto its street line, and format them like Ash ("S LEMON ST.", "E ELM AVE.", bare private streets become "<NAME> VIA.").
+  - Where the conductor follows a street, keep the 7 ft offset road and drop the PDF street lines that duplicate it. Major streets are drawn in the PDF as two edge lines, so on those runs drop within 9 pt; elsewhere drop within 5 pt.
+  - Where the conductor runs between two streets (Royer on Valencia, between Patterson and Valencia), skip the offset road and keep both PDF streets.
+  - Railroads are dark (0.24, 0.26, 0.36) strokes; draw them on MISC.
+  - **Railroad lines** (Kevin, 2026-11-24):
+    - When the PDF shows two rails very close together, draw ONE continuous centerline polyline with linetype RR. The template already has the RR linetype.
+    - Labels like AMTRAK go on MISC, about 6.5 ft off the line so they clear the RR ticks.
+    - Method: RoyerTest/rr_center2.py. Each rail sample moves to the midpoint with the facing rail (1.2–4.2 pt away), then the samples are thinned, walked across dash gaps, cleaned of spikes, and simplified.
+  - The 7 ft road goes on the side where the replaced PDF street actually is. Work the side out from the dropped segments, don't assume it.
+  - Roads follow the street, not the cable's jogs (skip transformer detours and U-turns at boxes).
+  - Name each road for the street the PDF labels there (the Magnolia diagonal is MAGNOLIA, not PINE).
+  - Snap the ends of cross streets that ended on a replaced street onto the new road.
+- **More than one circuit** (Ash test, 2026-11-24):
+  - Register each circuit page onto the first page with a similarity transform. Seed it with two shared symbols (the sub circle and the shared PS circle), then check that the streets line up. Lawrence page 10 to page 1: scale 0.853 (340/400), no rotation, 0.06 pt street error.
+  - Tool: singleline_tools/extract_page.py (conductors, poles, boxes, triangles, label glyph clusters, streets, all clipped to the cloud).
+  - Label text is read by eye per cluster id. Each label's position and angle come from the PDF cluster.
+  - Once both circuits are drawn, remove the tie arrow between them so the line continues.
+- **Pothead direction:** take the axis from the conductor segment under the triangle. The vertex whose projection on that axis stands apart from the other two is the tip.
+- **Symbols, confirmed against the finished Ash drawing (2026-11-25):**
+  - "S" in a triangle = SGL_SIG_CRI.
+  - Quartered red/white circle = SGL_FERRO.
+  - "C" in a circle = SGL_SUB_CUST_PP (Customer Substation), not SGL_CG.
+  - Black dot = SGL_TRAN_BP.
+  - "T/L/R" circle = SGL_SW_3W (vis LTR-UP).
+  - Circle with a fuse curve = SGL_BURD_SW_FUSED.
+  - A fuse squiggle on the line with a "BF" number = SGL_BLF.
+  - A pothead with a fuse (FD/80A) = SGL_PH_FUSED.
+  - PME type follows the terminal layout. Lawrence examples: PME4619 = PME_06, PME0223 = PME_09, PME4737 = PME_01 with LB-ELBOWS-RIGHT, PMH5981 = PME_05 rotated 270.
+  - Horizontal 3-phase transformer = SGL_TRAN_PM (r90). A/B 1-phase = SGL_TRAN_PM_1PH_DEDF_NFUSED.
+- **Gear switches:**
+  - Put an SGL_BOX vault around the switch(es). The V-number goes above the vault; the GS number and ways go inside.
+  - Tie ways get an SGL_SYM_ARR_DC pointing down out of the way, on the tie circuit's layer, with the tie name ("MATLOCK / FULLERTON") in that layer beside it.
+  - Cables snap to the way terminals at the exact Ash x values listed in block_conventions.md (RAM pitch is not uniform). Terminals sit on the bottom edge of the switch body.
+  - Every cable off a gear-switch way or junction leg is underground (Ash: 73 of 75 UG3PH, 2 UG1PH), even where the PDF draws it solid.
+  - Vaults stay clear of railroads: Ash keeps the RR well away from V5770309. The generator bows the RR over the vault (clear of the V#) or under it (clear of tie names), whichever is nearer (build_royer_v6.py rr_detour).
+  - Every cable must end exactly on a block terminal: switch way, junction leg, PME terminal, transformer feed or pothead (Kevin, P5435981, 2026-11-25).
+    - Place blocks from their measured terminals, not from the PDF symbol centre, and square the last cable run onto the terminal (lawrence_part.py snap_end).
+    - Transformers and PMEs are placed before the conductors are drawn.
+    - **Final end sweep** (2026-11-25, `build_royer_v6.py` `sweep_ends`; check tool `singleline_tools/sweep_ends.py` + `sweep_sheet.py`):
+      - Every block placed is recorded (INSERTS) with its Ash-measured terminals (TERM_LOCAL): potheads, BLF, PS switches, BURD, PMEs, 1-phase A/B pad, TRAN_PM (0, 12), TRAN_DE feed, poles. 1-phase dots and the substation are circles (4.8 / 5 ft).
+      - A cable end touching nothing goes to the nearest FREE terminal within 25 ft (sub 40), closest pair first.
+      - Never onto a terminal the same cable already reaches; that once folded the PME4737 → P5528419 cable back on itself.
+      - If the far end of a 2-point run is attached and the terminal is under 2.5 ft off the line, slide a block (pulled end first, else far end) onto the line; a square jog is the last resort (P5711986).
+      - Still loose: extend the end straight ahead onto a run within 13 ft (runs the extractor split at a fuse squiggle).
+      - Lawrence went from 35 loose ends to the 2 the sheet itself leaves open.
+    - Pole-switch strokes on the PDF (closed X arms, open bars) are symbol lines, not cable. Drop short chains around a PS.
+    - A run that another cable tees into is pinned: slide the transformer onto it instead of moving the run.
+    - A cable that runs into a capbank's "A" on the map: the bank's insertion goes on that cable end, mirrored if the bank lies right. No leader in that case (0221838).
+    - Every block type needs its own terminal snap. A block type with no snap leaves its cables wherever the PDF symbol ended. P5091471, a 1-phase A/B pad, was skipped and left both cables 12 ft short; its A/B terminals are (−5.72, 0) / (+6.28, 0).
+    - If a straight run is already pinned to a way or leg at its far end, slide the block onto the run instead of bending the cable (J495 leg 4 to P5319466).
+  - Way cables leave the vault through its bottom edge and turn below it, nested (Kevin, V5091495, 2026-11-25).
+    - With a tie, the turns go about 16 ft or more below the vault, leaving room for the tie name.
+    - Match each cable only to the vault its terminal is in: check x AND y. An x-only match dragged GS2979's cables up into GS2819's vault.
+    - A conduit never leaves a vault box and re-enters it. A way-to-leg cable in the same vault stays inside the box (Kevin, 2026-11-25; Ash's GS2818 way 5 → J495 leg 1 is wrong).
+    - A TRAN_DE P# never crosses the elbows. Top-fed (r0): beside them at (±12.5, +9). Otherwise centred above.
+    - Blocks sharing a vault stay together: a junction bar is top-aligned with the switch, about 20.6 ft beside it, with its label right above it (Kevin, V5091495).
+    - 3-way BS switch (SGL_SW_3W): cables end on T/L/R (±4.8 ft); side cables run 9.5 ft out before turning. A junction bar sits 13.3 ft beside it. A map chevron on a junction leg is an SGL_LBE; a squiggle with a ground mark is an SGL_TRAN on a short stub (V5091496).
+    - Vault text must not touch cables or block lettering (Kevin, V5091496). Widen the box to fit side labels. Centre a junction label over its legs. Slide the V# along the top edge off the cables. Size text at about 2.8 ft per character at 3.2 high.
+    - Device labels (GS#, J#) are centred over the block's ways (midpoint of the first and last way terminals), about 3.6 ft above the way numbers. Way cables use the exact measured way x values (RAG 3.7 / 7.48 / 11.26), never an even pitch; a 0.04 ft offset shows (Kevin, GS4801, 2026-11-25).
+    - Tie ways are drawn open. Ground marks under junction legs are SGL_CAP r90.
+  - Line text (cable sizes, phases) must not sit on another line or label. on_conductor tries spots every 1.5 ft along nearby runs and scores them by distance from the PDF spot plus a heavy penalty per overlap. It runs after all other labels.
+  - Every way's cable leaves straight down from its terminal, in map order (Kevin flagged V5092570, 2026-11-25). A way the map shows with a fuse squiggle gets SGL_TRAN_FUSED r270 at the terminal (GS2979 way 5).
+  - Junction bars: legs at pitch 3.7 (4W) / 4.1 (3W), y = −5.3.
+- **Lawrence linetypes, matched to Ash:**
+  - Solid = OH3PH.
+  - Dashed with no ticks = OH1, or OH1PHwN when small circle markers sit along it.
+  - Dash plus ticks = UG3PH, except the loop feeding the 1-phase A/B pads = UG2PH.
+- **Per-block reference:** C:\civ3dmcp\jobs\Singleline\_analysis\block_conventions.md, measured from Ash on 2026-11-25 (block_study.py / block_study.json). It covers each block's terminals, label offsets, vault layout, RAM vs RAG, phase labels (AØ/BØ/CØ on 1-phase and 2-phase runs), BLF label stacks, capacitor bank leaders, and continuation ("TO … & LOAD") arrows. Read it before drafting.
+- **Phase labels and cable sizes** (Kevin, 2026-11-25: "utilize the text found throughout, such as the text used for pole names"):
+  - Phase labels (AØ, BCØ, ABØ, BCA, ACB …) are printed on the circuit-map sheet along the run, in the same glyph text as pole numbers. Read them from the label clusters by eye, like everything else. Never infer them.
+  - Seen on Putter B2 (page 8). Royer (p1), Lawrence (p10) and Richman (p4) print none, and Ash has none on Lawrence, so a circuit with no phase text gets no phase labels.
+  - Placement (lawrence_part.py `on_conductor`): snap to the nearest conductor segment (≥ 8 ft, within 40 ft of the PDF label), centred at the projected point, 2.7 ft off, rotated with the run. Horizontal runs: above. Vertical runs: on whichever side the PDF shows (left reading up / right reading down). Cable sizes ("4 A", "1/0 JCN", "1000 CLP") use the same rule.
+- **Text and pole-switch fixes** (Kevin's 15-item list, 2026-11-25; final passes in `build_royer_v6.py`):
+  - Text width is about 2.8 ft per character at 3.2 high (CW). 2.42 left every label off-centre.
+  - Line text is never upside down: flipping only changes the side. Vertical runs always take the label on the LEFT, reading up.
+  - Label pass (`relocate_labels`): a pole / X / M / P number that touches a conduit, another label (0.9 ft air) or a block outline moves to the first clear spot around its block. Order: above, below, right, left, then the corners.
+    - Box anchors use the box's real centre: SGL_BOX grows from its corner.
+    - An orphaned pole number adopts the nearest unlabelled pothead within 60 ft.
+    - Neighbouring pole labels alternate above / below when they crowd (4079422E / 4576852E).
+  - **Never delete a cable on a guess** (2026-11-25: the leftover-stub rule deleted GS4801 way 2 → pothead 1748173E). A 2-point stub is a leftover only if it is under 30 ft and its far end touches nothing: no conductor, no terminal (switch ways and junction legs are terminals too), no dot edge. After any rule that removes geometry, diff the job's conductors against the previous build and explain every one that disappeared. Zero-length debris is removed before the stub pass.
+  - Pothead stubs (`stub_potheads`, run AFTER the end sweep): a pothead tail or tip touching nothing gets a straight stub back or ahead to the first line within 30 ft. A 2-point leftover stub whose far end hangs in the air doesn't count as a connection; it is removed.
+  - A closed pole switch (SGL_SW_CL_POLE) sits ON the line, rotated with it, and the line breaks at its ±13.5 ft arm ends. The PS circle sits 13.2 ft below it.
+    - The FI on that pole has its tip at X + (9.3, −14.6), pointing back at the circle (Ash PS 0365 / FI07781).
+    - PS circles sit about 13 ft beside their switch, not where the PDF text cluster was (PS 0906).
+  - The extractor can chain two cables through a fuse squiggle (P5380189 / PME4619). Check the topology against the PDF and split such chains.
+  - Draw a conductor if its FINAL route is long enough, not its original PDF stroke.
+- **Reading small details from the vector PDF** (Kevin 2026-11-25: "associate vector shapes to the blocks"). Tools in `singleline_tools/`:
+  - `symbol_census.py`: clusters every small vector symbol on a page and groups the clusters by shape signature (size, stroke widths, colours, line/curve/rect counts, fill). It drops conductors, streets, the cloud and text glyphs.
+    - With `--dict symbol_dictionary.json --to-ref ... --cloud <extract.json>` it labels each type, counts the blocks inside the cloud, and lists unlabelled types (details still to identify).
+  - `symbol_dictionary.json`: signature → block. Labelled from Ash page 10. Each entry's kind is block, composite (a vault or pole+device merged into one cluster), linetype, text or ignore.
+    - The small ring markers along a 1-phase run belong to the SGL-OH1PHwN linetype, not SGL_TRAN_BP. I misread them at first; check composite and ambiguous types against Ash before trusting a count.
+  - `extract_symbols.py`: fuse zig-zags (0.12 pt, about 0.8 × 2.1), ground taps (W only), chevrons (0.48 pt V, in pairs), each with its attachment point.
+    - The generator's symbol pass places a missing SGL_TRAN_FUSED or SGL_TRAN. "Already there" means the same block within 30 ft: condensed vaults move blocks.
+  - `tile_check.py`: overlapping cloud tiles rendered at 12×. Capture the drawing side at 2300 px wide (about 0.29 ft/px), then send the pairs to 3 parallel reviewer agents. Page 10: 43 tiles, about 27 findings.
+  - The page-10 census counts match the drawing for potheads, transformers, ties, fuse taps, PMEs, BLF, FI and switches.
+- **Fault indicators** (Kevin, FI07808, 2026-11-25): draw the SGL_OH_FI as the map shows it. Its tip (the insertion) sits at the PDF tip, and a SingleLine polyline runs from the tip to the conduit where the red leader lands. Mirror the pennant so it points away from the conduit. Copy with mirrorX; since the plugin fix (SimsUDS/Civil3D-mcp #13/#14) that gives x-scale −40 with readable attributes, exactly like Ash.
+- **Crossings:** where one conductor crosses another, draw the hop as a polyline bulge (semicircle, about 4 ft), the way Ash does.
+  - In the PDF, a hop is its own width-1.2 stroke of about 12 short segments in a semicircle (chord about 4–5 pt). extract_page.py swaps each one for a straight chord and records it.
+  - The generator (pl_hopped) puts a 4 ft bulge only on the conductor parallel to the hop's chord, centered on the crossing line. The crossed line stays straight.
+  - Skip any hop whose crossing line no longer exists, for example when a way line inside a switch body was dropped.
+  - Kevin flagged hops as needing care.
+- **Royer test:** the trial job and its generator are in C:\civ3dmcp\jobs\Singleline\RoyerTest (build_royer_v6.py + lawrence_part.py). The packaged skill is in the SimsUDS fork at tools/singleline (docs/SKILL.md).
+
+## Tile-review rules (2026-11-25)
+- Structure boxes sit ON their cable. They follow a lowered vault-floor leg, are widened to hold two parallel runs
+  through them, and a cable end inside one is finished (never pulled to other equipment). A run that passes level
+  with a box over a pothead tip ends at the box centre (Ash X5177783).
+- PME dyn angles and open-way angles must be exact radians (math.pi / 2, not 1.5708) or the apply fails mid-job.
+- A failed apply leaves its creates and copies in the drawing: always re-query before rebuilding.
+- Check any new linetype rule against Ash before keeping it (the "cable on a pothead tip = UG" idea was wrong 4 of 7 times).
+- The 2-phase UG loop to the 1-phase A/B pads is SGL-UG2PH (Ash), not UG1PH. Keep straight runs to a single segment
+  (drop kinks under 0.6 ft) so UG dots show. Box labels go on the side the PDF shows (beside or above).
+- No small jog lines (Kevin 2026-11-25, P5711986): under 2.5 ft off, slide the transformer / pothead / switch onto
+  the run's line instead of bending the cable.
+- Road pass 2 (2026-11-25): replace whole PDF streets (chained, deduped: the PDF strokes each street twice) by their own
+  shape moved 7 ft off the cable; drop the parallel far edge. Check with singleline_tools/road_check.py and road_overlay.py.
