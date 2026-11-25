@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- `civil3d_entity` copy with `mirrorX` now mirrors block inserts the way
+  AutoCAD MIRROR does: X scale negated (e.g. 40 -> -40), insertion point and
+  rotation mirrored, normal kept at +Z. Before, the insert was mirrored with
+  `TransformBy`, which flipped its normal to -Z; its attributes inherited that
+  normal and read backwards from above even after their justification was
+  reset (seen on a mirrored SGL_OH_FI fault indicator). Text, MText and
+  dimensions are unchanged. Needs the rebuilt plugin loaded.
+  Annotative / unit-scaled inserts keep their size: the scale is read back
+  after it is set and any extra factor is divided out (a 40-scale SGL_OH_FI
+  first came back at -1600).
+
 - Layer names that don't exist yet are now created instead of silently
   replaced by the current layer (`LookupUtils.GetLayerId`). Before, a
   `civil3d_entity` `edit` / `apply` with `layer` set to a missing layer moved
