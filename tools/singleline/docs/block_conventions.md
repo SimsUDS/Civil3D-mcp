@@ -235,3 +235,7 @@ Source: Ashsingleline.dwg, EXISTING copy. Every block was measured with block_st
   street) and road_overlay.py (PDF streets gray, roads red, cables blue, names) for a whole sheet or a window.
 - Royer (page 1) left as it was: its S Lemon road sits 7 ft west of the cable, as in Ash, even though the PDF street
   is east. Its E Orangethorpe road (south of the cable, PDF street north) was not found in Ash to confirm.
+- E Orangethorpe (Royer) moved to the PDF street's side, north of the cable (Kevin, 2026-11-25). Labels that sat 7 ft
+  above the cable there (V5633635, 4126229E) go below. The road clears the street's own edge lines up to 45 ft on
+  its north side (EDGE_BANDS), and cross streets that ended on them are carried along themselves onto the road.
+  Left over: two Lawrence cross streets (x~24900, x~25385) still stop on the old north edge; a V of short strokes at x~25260.
