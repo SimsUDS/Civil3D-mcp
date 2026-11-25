@@ -28,7 +28,7 @@ const CopyOperationSchema = z.object({
   dy: z.number().describe("Y displacement."),
   space: SpaceSchema.optional().describe("Space the source entities live in."),
   targetSpace: SpaceSchema.optional().describe("Copy only: place copies in this space instead of the source space."),
-  mirrorX: z.number().optional().describe("After the offset, mirror across the vertical line x = mirrorX. Text stays readable (justification flips, like MIRRTEXT 0)."),
+  mirrorX: z.number().optional().describe("After the offset, mirror across the vertical line x = mirrorX. Text stays readable (justification flips, like MIRRTEXT 0). A block insert gets a negative X scale with its normal kept at +Z, as AutoCAD MIRROR does, so its attributes read normally."),
 });
 
 const EditSchema = z.object({
